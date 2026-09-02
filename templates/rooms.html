@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/services.css') }}">
+{% endblock %}
+
+{% block content %}
+<h1>Номери</h1>
+<p>Затишок серед гір і лісу</p>
+
+<div class="calendars_button"></div>
+
+<div class="rooms">
+    <div class="room">
+        <img src="" alt="">
+        <h1>Лісова хатина</h1>
+        <p>Текст</p>
+        
+        <div class="price">
+            <p>2400</p>
+            <button type="submit">Детальніше</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

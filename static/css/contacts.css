@@ -1,0 +1,97 @@
+.contacts{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+
+    gap: 20px;
+}
+
+.contacts p{
+    color: #8A8578;
+    font-size: 13px;
+}
+
+.maps iframe{
+    width: 350px;
+    height: 200px;
+
+    border-radius: 24px;
+}
+
+.adress,
+.work_time{
+    background-color: #DDDDDD;
+    border-radius: 24px;
+
+    padding: 25px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+
+    width: 300px;
+}
+
+.adress h2,
+.work_time h2{
+    font-weight: lighter;
+    color: #B0A98F;
+}
+
+.work_time h2{
+    text-transform: uppercase;
+}
+
+.adress a,
+.work_time p{
+    color: #3C608D;
+    font-size: 14px;
+}
+
+.adress a{
+    text-decoration: none;
+}
+
+.contact{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+
+    width: 100%;
+}
+
+.contact div{
+    background-color: #DDDDDD;
+    border-radius: 24px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    color: #3C608D;
+
+    padding: 25px;
+}
+
+.contact div p{
+    font-weight: bold;
+    font-size: 14px;
+    color: #3C608D;
+}
+
+.contact div h2{
+    font-size: 13px;
+    color: #3C608D;
+}
+
+.contact .active{
+    background-color: #3C608D;
+}
+
+.contact .active p,
+.contact .active h2{
+    color: white;
+}

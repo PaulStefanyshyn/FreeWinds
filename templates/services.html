@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/services.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="services">
+    <h1>Послуги</h1>
+    <p>Відпочинок для душі та тіла</p>
+
+    <div class="propose">
+        <div class="card">
+            <img src="" alt="">
+            <h1>Басейн</h1>
+            <p>300</p>
+        </div>
+    </div>
+
+    <div class="dates">
+        <h2>Дати</h2>
+
+        <div class="dates_catalog">
+            <div class="date">
+                <p>вт</p>
+                <h1>01</h1>
+            </div>
+        </div>
+
+        <div class="times">
+            <h2>Час</h2>
+
+            <div class="times_catalog">
+                <p>10:00</p>
+            </div>
+        </div>
+
+        <button type="submit">Забронювати</button>
+    </div>
+</div>
+{% endblock %}

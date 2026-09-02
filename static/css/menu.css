@@ -1,0 +1,91 @@
+.menu > *{
+    margin-bottom: 20px;
+}
+
+.type {
+    display: flex;
+    flex-direction: row;
+
+    overflow-x: hidden;
+
+    gap: 10px;
+}
+
+.type button{
+    padding: 8px 16px;
+
+    border-radius: 20px;
+    border: 1px solid #EFEAE0;
+;
+
+    background-color: white;
+
+    color: black;
+    font-size: 11px;
+}
+
+.type button.active{
+    background-color: #3C608D;
+
+    color: white;
+
+    border-color: #3C608D;
+}
+
+#catalog{
+    display: flex;
+    flex-direction: column;
+
+    gap: 20px;
+}
+
+#catalog .card{
+    display: flex;
+    flex-direction: row;
+
+    gap: 15px;
+    padding: 21px 15px;
+
+    background-color: white;
+
+    border-radius: 20px;
+
+    justify-content: flex-start;
+    align-items: center;
+}
+
+#catalog .card img{
+    width: 60px;
+    height: 60px;
+
+    border-radius: 10px;
+
+    object-fit: cover;
+}
+
+#catalog .card .description h2{
+    font-size: 14px;
+    font-weight: bold;
+    color: black;
+}
+
+#catalog .card .description p{
+    font-size: 14px;
+    font-weight: bold;
+    color: #B89356;
+}
+
+#catalog .card .description p::after{
+    content: "₴";
+}
+
+
+@media(max-width: 980px) {
+    .type {
+        overflow-x: scroll;
+    }
+
+    .type::-webkit-scrollbar {
+        display: none;
+    }
+}

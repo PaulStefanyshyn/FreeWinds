@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/contacts.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="contacts">
+    <h1>Контакти</h1>
+    <p>Знайдіть нас серед гір</p>
+
+    <div class="maps">
+        <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d375143.59999496856!2d23.730119831351853!3d48.567276799394634!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x4737519801f42f7d%3A0x170c4227c2963a95!2z0JrQvtGC0LXQtNC2ICJBbGJlcnR2aWxsZSI!5e0!3m2!1suk!2sua!4v1788333661985!5m2!1suk!2sua" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    </div>
+
+    <div class="adress">
+        <h2>Адреса</h2>
+        <a href="">Івано-Франківська область, вул. Юрківська, 6</a>
+    </div>
+
+    <div class="work_time">
+        <h2>Час роботи</h2>
+        <p>Ресепшн: 8:00 - 22:00</p>
+    </div>
+
+    <div class="contact">
+        <div class="phone active" onclick="phone(this)">
+            <h2>Зателефонувати</h2>
+
+            <p>+38 099 123 45 67</p>
+        </div>
+        <div class="inst" onclick="inst(this)">
+            <h2>instagram</h2>
+
+            <p>@vilnivitry_hotel</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function phone(conteiner){
+        change_active(".contact", conteiner);
+
+        const phone = conteiner.querySelector("p").textContent;
+
+        window.location.href = `tel:${phone}`;
+    }
+
+    function inst(container){
+        change_active(".contact", container);
+
+        const inst = container.querySelector("p").textContent;
+
+        window.open(`https://www.instagram.com/${inst}/`, "_blank");
+    }
+
+    function change_active(class_name, curent){
+        const blocks = document.querySelectorAll(`${class_name} div`);
+        blocks.forEach(element => {
+            if (element == curent) {
+                element.classList.add("active");
+            } else {
+                element.classList.remove("active");
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/menu.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="menu">
+    <h1>Меню</h1>
+
+    <div class="type">
+        <button class="active" onclick="getButton(this)">Сніданки</button>
+        <button onclick="getButton(this)">Гарніри</button>
+        <button onclick="getButton(this)">Салати</button>
+        <button onclick="getButton(this)">Супи</button>
+        <button onclick="getButton(this)">Напої</button>
+    </div>
+
+    <div id="catalog"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const all_menu = [
+        { type: "Сніданки", name: "Margherita", price: 150, img: "/static/img/vodogray.png" },
+        { type: "Сніданки", name: "Pepperoni", price: 180, img: "/static/img/vodogray.png" },
+        { type: "Напої", name: "Cola", price: 50, img: "/static/img/vodogray.png" }
+    ]
+
+    function getButton(button) {
+        const button_container = ".type";
+        change_active(button_container, button);
+
+        const type = button.textContent;
+        const menu_block = document.getElementById('catalog');
+
+        menu_block.innerHTML = "";
+
+        all_menu.forEach(menu => {
+            if (menu['type'] == type) {
+                const name = menu['name'];
+                const price = menu['price'];
+                const img = menu['img'];
+
+                const card = create_menu_card(name, price, img);
+
+                menu_block.appendChild(card);
+            }
+        });
+    }
+
+    function create_menu_card(name, price, image) {
+        const card = document.createElement("div");
+        card.classList.add("card");
+
+        const img = document.createElement("img");
+        img.src = image;
+        img.alt = name;
+
+        const description = document.createElement("div");
+        description.classList.add("description");
+
+        const title = document.createElement("h2");
+        title.textContent = name;
+
+        const pricelot = document.createElement("p");
+        pricelot.textContent = price;
+
+        description.appendChild(title);
+        description.appendChild(pricelot);
+
+        card.appendChild(img);
+        card.appendChild(description);
+
+        return card;
+    }
+
+    function change_active(phather_class_name, current_element) {
+        const buttons = document.querySelectorAll(`${phather_class_name} button`);
+
+        buttons.forEach(element => {
+            if (element == current_element) {
+                element.classList.add("active");
+            } else {
+                element.classList.remove("active");
+            }
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const active_btn = document.querySelector(".type button.active");
+        getButton(active_btn);
+    });
+</script>
+{% endblock %}
