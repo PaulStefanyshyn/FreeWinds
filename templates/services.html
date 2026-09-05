@@ -9,7 +9,7 @@
     <h1>Послуги</h1>
     <p>Відпочинок для душі та тіла</p>
 
-    <div class="propose">
+    <div id="propose">
         <div class="card">
             <img src="" alt="">
             <h1>Басейн</h1>
@@ -20,22 +20,132 @@
     <div class="dates">
         <h2>Дати</h2>
 
-        <div class="dates_catalog">
-            <div class="date">
-                <p>вт</p>
-                <h1>01</h1>
-            </div>
-        </div>
-
-        <div class="times">
-            <h2>Час</h2>
-
-            <div class="times_catalog">
-                <p>10:00</p>
-            </div>
-        </div>
-
-        <button type="submit">Забронювати</button>
+        <div id="dates_catalog"></div>
     </div>
+
+    <div class="times">
+        <h2>Час</h2>
+
+        <div id="times_catalog"></div>
+    </div>
+
+    <button type="submit">Забронювати</button>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const all_services = [
+        { name: "Басейн", price: 150, img: "/static/img/vodogray.png" },
+        { name: "Чани", price: 180, img: "/static/img/vodogray.png" },
+        { name: "Баня", price: 50, img: "/static/img/vodogray.png" },
+        { name: "Більярд", price: 360, img: "/static/img/vodogray.png" }
+    ]
+
+    const free_time = [
+        { date: '09.01.2026', time: ["10:00", "12:00", "14:00", "16:00", "18:00", "20:00"] },
+        { date: '09.02.2026', time: ["08:00", "12:00", "14:00", "16:00", "18:00", "20:00"] },
+        { date: '09.03.2026', time: ["09:00", "12:00", "14:00", "16:00", "18:00", "20:00"] },
+        { date: '09.04.2026', time: ["11:00", "12:00", "14:00", "16:00", "18:00", "20:00"] }
+    ]
+
+    function set_services() {
+        const services = document.getElementById('propose');
+
+        services.innerHTML = "";
+
+        all_services.forEach(element => {
+            const card = document.createElement('div');
+            card.classList.add("card");
+
+            const img = document.createElement('img');
+            img.src = element['img'];
+            img.alt = element['name'];
+
+            const name = document.createElement('h2');
+            name.textContent = element['name'];
+
+            const price = document.createElement('p');
+            price.textContent = element['price'];
+
+            card.appendChild(img);
+            card.appendChild(name);
+            card.appendChild(price);
+
+            services.appendChild(card);
+        });
+    }
+
+    function set_dates() {
+        const date_container = document.getElementById('dates_catalog');
+
+        free_time.forEach(element => {
+            const date = new Date(element['date']);
+
+            const card = document.createElement('div');
+            card.classList.add('date');
+            card.dataset.date = date;
+
+            const day = document.createElement('p');
+            day.textContent = date.toLocaleDateString('default', { weekday: 'short' });
+
+            const day_number = document.createElement('h1');
+            day_number.textContent = date.getDate();
+
+            card.appendChild(day);
+            card.appendChild(day_number);
+
+            const dateelement = element;
+
+            card.onclick = function () {
+                const dates = date_container.querySelectorAll('.date');
+                dates.forEach(element => {
+                    element.classList.remove('active');
+
+                    const clicked_date = new Date(dateelement['date']);
+                    const element_date = element.dataset.date;
+                    
+                    if (clicked_date == element_date) {
+                        set_times(dateelement);
+                    }
+                });
+                card.classList.add('active');
+            }
+
+            date_container.appendChild(card);
+        });
+    }
+
+    function set_times(date) {
+        const time_container = document.getElementById('times_catalog');
+
+        time_container.innerHTML = "";
+
+        date['time'].forEach(element => {
+            const card = document.createElement('p');
+            card.textContent = element
+
+            card.onclick = function() {
+                const cards = time_container.querySelectorAll('p');
+
+                cards.forEach(element => {
+                    element.classList.remove('active');
+                });
+
+                card.classList.add('active');
+            }
+
+            time_container.appendChild(card);
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        set_services();
+        set_dates();
+
+        const dates = document.querySelectorAll('#dates_catalog .date');
+
+        dates[0].click();
+    });
+</script>
 {% endblock %}
