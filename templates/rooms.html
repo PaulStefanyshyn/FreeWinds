@@ -1,25 +1,146 @@
 {% extends "base.html" %}
 
 {% block style %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/services.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/rooms.css') }}">
 {% endblock %}
 
 {% block content %}
 <h1>Номери</h1>
 <p>Затишок серед гір і лісу</p>
 
-<div class="calendars_button"></div>
+<div class="calendars_button">
+    <img src="" alt="">
+    <div id="selected_date">
+        <p id="for"></p>
+        <p id="to"></p>
+    </div>
+</div>
+
+<div id="calendar"></div>
 
 <div class="rooms">
     <div class="room">
         <img src="" alt="">
         <h1>Лісова хатина</h1>
         <p>Текст</p>
-        
+
         <div class="price">
             <p>2400</p>
             <button type="submit">Детальніше</button>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function create_calendar() {
+        const calendar_block = document.getElementById('calendar');
+
+        const month_block = document.createElement('div');
+        month_block.classList.add('month');
+
+        const prev_btn = document.createElement('button');
+        prev_btn.classList.add('prev_month');
+
+        const next_btn = document.createElement('button');
+        next_btn.classList.add('next_month');
+
+        const month = document.createElement('h2');
+
+        const today = new Date();
+        const curent_month = today.getMonth();
+        const curent_year = today.getFullYear();
+        let new_year = curent_year;
+
+        month.textContent = curent_month + 1;
+
+        next_btn.onclick = function () {
+            const prev_month = Number(month.textContent);
+            let new_month = prev_month + 1;
+
+            if (new_month > 12) {
+                new_month = 1;
+                new_year = curent_year + 1;
+            }
+
+            month.textContent = new_month;
+
+            get_dates(new_year, new_month, calendar_block);
+        }
+
+        prev_btn.onclick = function () {
+            const prev_month = Number(month.textContent);
+            const new_month = prev_month - 1;
+
+            if (new_month >= curent_month + 1 && new_year >= curent_year) {
+                month.textContent = new_month;
+            }
+        }
+
+        calendar_block.appendChild(prev_btn);
+        calendar_block.appendChild(month);
+        calendar_block.appendChild(next_btn);
+    }
+
+    function get_dates(year, month, father_block) {
+        let weeks_day_container = document.querySelector('.week_day');
+
+        if (!weeks_day_container) {
+            weeks_day_container = document.createElement('div');
+            weeks_day_container.classList.add('week_day');
+        }
+
+        const getDayNames = (locale = 'en-US', format = 'long') => {
+            const formatter = new Intl.DateTimeFormat(locale, {
+                weekday: format
+            });
+
+            return Array.from({ length: 7 }, (_, i) =>
+                formatter.format(new Date(2025, 0, 5 + i))
+            );
+        };
+
+        const days = getDayNames('uk-UA', 'short');
+
+        weeks_day_container.innerHTML = "";
+
+        days.forEach(element => {
+            const day_name = document.createElement('p');
+            day_name.textContent = element;
+
+            weeks_day_container.appendChild(day_name);
+        });
+
+        father_block.appendChild(weeks_day_container);
+
+        const daysInMonth = new Date(year, month, 0).getDate();
+
+
+        let days_block = document.querySelector('.days');
+
+        if (!days_block) {
+            days_block = document.createElement('div');
+            days_block.classList.add('days');
+        }
+
+        days_block.innerHTML = "";
+
+        for (let day = 0; day < daysInMonth; day++) {
+            const element = document.createElement('p');
+            element.textContent = day + 1;
+            
+            days_block.appendChild(element);
+        }
+
+        father_block.appendChild(days_block);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const calendar = document.getElementById('calendar');
+
+        create_calendar();
+        get_dates(2026, 9, calendar);
+    });
+</script>
 {% endblock %}

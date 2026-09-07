@@ -5,6 +5,10 @@ app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
 @app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/menu')
 def info():
     return render_template('menu.html')
 
