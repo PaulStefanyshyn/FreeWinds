@@ -1,0 +1,60 @@
+#calendar{
+    background-color: white;
+
+    border-radius: 16px;
+
+    padding: 16px;
+
+    width: 100%;
+}
+
+#calendar .month{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+
+    gap: 15px;
+}
+
+#calendar .month button{
+    width: 30px;
+    height: 30px;
+
+    font-size: 26px;
+    color: #3C608D;
+
+    background-color: transparent;
+
+    border: none;
+
+    cursor: pointer;
+}
+
+#calendar .month .prev_month::after{
+    content: "<";
+}
+
+#calendar .month .next_month::after{
+    content: ">";
+}
+
+.week_day{
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+
+    margin-top: 15px;
+    margin-bottom: 20px;
+}
+
+.days{
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+
+    gap: 10px;
+}
+
+.week_day,
+.days{
+    text-align: center;
+}

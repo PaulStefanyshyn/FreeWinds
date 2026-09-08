@@ -34,6 +34,8 @@
 
 {% block scripts %}
 <script>
+    const clicked_date = [];
+
     function create_calendar() {
         const calendar_block = document.getElementById('calendar');
 
@@ -53,34 +55,61 @@
         const curent_year = today.getFullYear();
         let new_year = curent_year;
 
-        month.textContent = curent_month + 1;
+        let date = new Date(new_year, curent_month, 1);
+
+        month.textContent = `${date.toLocaleString('uk-UA', { month: 'long' })}, ${new_year}`;
+
+        month.dataset.month = curent_month + 1;
+        month.dataset.year = new_year;
 
         next_btn.onclick = function () {
-            const prev_month = Number(month.textContent);
+            const prev_month = Number(month.dataset.month);
+            const prev_year = Number(month.dataset.year);
             let new_month = prev_month + 1;
 
             if (new_month > 12) {
                 new_month = 1;
-                new_year = curent_year + 1;
+                new_year = prev_year + 1;
             }
 
-            month.textContent = new_month;
+            month.dataset.month = new_month;
+            month.dataset.year = new_year;
+
+            date = new Date(new_year, new_month - 1, 1);
+            month.textContent = `${date.toLocaleString('uk-UA', { month: 'long' })}, ${new_year}`;
 
             get_dates(new_year, new_month, calendar_block);
         }
 
         prev_btn.onclick = function () {
-            const prev_month = Number(month.textContent);
-            const new_month = prev_month - 1;
+            const prev_month = Number(month.dataset.month);
+            const prev_year = Number(month.dataset.year);
+            let new_month = prev_month - 1;
 
-            if (new_month >= curent_month + 1 && new_year >= curent_year) {
-                month.textContent = new_month;
+            if (new_month < 1) {
+                new_month = 12;
+                new_year = prev_year - 1;
             }
-        }
 
-        calendar_block.appendChild(prev_btn);
-        calendar_block.appendChild(month);
-        calendar_block.appendChild(next_btn);
+            if (
+                new_year > curent_year ||
+                (new_year === curent_year && new_month >= curent_month + 1)
+            ) {
+                date = new Date(new_year, new_month - 1, 1);
+                month.textContent = `${date.toLocaleString('uk-UA', { month: 'long' })}, ${new_year}`;
+
+                month.dataset.month = new_month;
+                month.dataset.year = new_year;
+
+                get_dates(new_year, new_month, calendar_block);
+            }
+        };
+
+        month_block.appendChild(prev_btn);
+        month_block.appendChild(month);
+        month_block.appendChild(next_btn);
+
+        calendar_block.appendChild(month_block);
     }
 
     function get_dates(year, month, father_block) {
@@ -126,10 +155,60 @@
 
         days_block.innerHTML = "";
 
+        let start_day = new Date(year, month - 1, 1).getDay();
+
+        for (let i = 0; i < start_day; i++) {
+            const element = document.createElement('p');
+
+            days_block.appendChild(element);
+        }
+
         for (let day = 0; day < daysInMonth; day++) {
             const element = document.createElement('p');
             element.textContent = day + 1;
-            
+
+            element.onclick = function () {
+                const value = Number(element.textContent);
+
+                if (clicked_date.length === 0) {
+                    clicked_date[0] = value;
+                }
+                else if (clicked_date.length === 1) {
+                    clicked_date[1] = value;
+
+                    // Make sure smaller date is first
+                    clicked_date.sort((a, b) => a - b);
+                }
+                else {
+                    // Start a new selection
+                    clicked_date.length = 0;
+                    clicked_date[0] = value;
+                }
+
+                const dat = document.querySelectorAll('.days p');
+
+                dat.forEach(el => {
+                    const day = Number(el.textContent);
+
+                    el.classList.remove('active', 'include');
+
+                    if (clicked_date.length === 1) {
+                        // Only first selected date
+                        if (day === clicked_date[0]) {
+                            el.classList.add('active');
+                        }
+                    }
+                    else if (clicked_date.length === 2) {
+                        if (day === clicked_date[0] || day === clicked_date[1]) {
+                            el.classList.add('active');
+                        }
+                        else if (day > clicked_date[0] && day < clicked_date[1]) {
+                            el.classList.add('include');
+                        }
+                    }
+                });
+            };
+
             days_block.appendChild(element);
         }
 
