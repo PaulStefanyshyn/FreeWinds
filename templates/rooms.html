@@ -5,6 +5,8 @@
 {% endblock %}
 
 {% block content %}
+{% include 'header.html' %}
+
 <div class="rooms">
     <div class="title">
         <h1>Номери</h1>
@@ -30,9 +32,9 @@
     const clicked_date = [];
 
     const rooms = [
-        { name: "Лісова хатина", description: "Дерев'яна хатина на узліссі з каміном.", price: 2400, img: "/static/img/vodogray.png", link: "/", reserved_date: [new Date(2026, 8, 1), new Date(2026, 8, 2)] },
-        { name: "Гірський люкс", description: "Панорамні вікна на хребти Карпат.", price: 3800, img: "/static/img/vodogray.png", link: "/", reserved_date: [new Date(2026, 8, 3), new Date(2026, 8, 4)] },
-        { name: "Гірський люкс 2", description: "Панорамні вікна на хребти Карпат.", price: 3900, img: "/static/img/vodogray.png", link: "/", reserved_date: [new Date(2026, 8, 5), new Date(2026, 8, 6)] }
+        { name: "Лісова хатина", description: "Дерев'яна хатина на узліссі з каміном.", price: 2400, img: ["/static/img/vodogray.png", "/static/img/retro_comand.png"], reserved_date: [new Date(2026, 8, 1), new Date(2026, 8, 2)], param: ["2 гості", "25 м²", "1 спальня"], comfort: ["Двоспальне ліжко", "Камін", "Душ і ванна", "Wi-Fi", "Кавова зона", "Тераса", "Вид на ліс", "Опалення"] },
+        { name: "Гірський люкс", description: "Панорамні вікна на хребти Карпат.", price: 3800, img: ["/static/img/vodogray.png", "/static/img/retro_comand.png"], reserved_date: [new Date(2026, 8, 3), new Date(2026, 8, 4)], param: ["4 гості", "25 м²", "2 спальня"], comfort: ["Двоспальне ліжко", "Камін", "Душ і ванна", "Wi-Fi", "Кавова зона", "Тераса", "Вид на ліс", "Опалення"] },
+        { name: "Гірський люкс 2", description: "Панорамні вікна на хребти Карпат.", price: 3900, img: ["/static/img/vodogray.png", "/static/img/retro_comand.png"], reserved_date: [new Date(2026, 8, 5), new Date(2026, 8, 6)], param: ["6 гості", "25 м²", "3 спальня"], comfort: ["Двоспальне ліжко", "Камін", "Душ і ванна", "Wi-Fi", "Кавова зона", "Тераса", "Вид на ліс", "Опалення"] }
     ]
 
     function create_calendar() {
@@ -109,6 +111,8 @@
         month_block.appendChild(next_btn);
 
         calendar_block.appendChild(month_block);
+
+        get_dates(new_year, curent_month + 1, calendar);
     }
 
     function get_dates(year, month, father_block) {
@@ -241,9 +245,6 @@
 
         rooms_container.innerHTML = "";
 
-        console.log('f: ', start_date);
-        console.log('s: ', end_date);
-
         rooms.forEach(element => {
             if (is_room_available(element, start_date, end_date)) {
                 let room = document.createElement('div');
@@ -253,8 +254,8 @@
                 info.classList.add('info');
 
                 let photo = document.createElement('img');
-                photo.src = element['img'];
-                photo.alt = element['name'];
+                photo.src = element['img'][0];
+                photo.alt = element['name'][0];
 
                 let title = document.createElement('h1');
                 title.textContent = element['name'];
@@ -271,9 +272,25 @@
                 let price_button = document.createElement('button');
                 price_button.textContent = "Детальніше";
 
-                price_button.onclick = function () {
-                    window.location.href = `https://${element['link']}`;
-                };
+                price_button.onclick = async function openHouse() {
+                    await fetch('/house', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            start_date: start_date,
+                            end_date: end_date,
+                            name: element['name'],
+                            description: element['description'],
+                            img: element['img'],
+                            room_parap: element['param'],
+                            comfort: element['comfort']
+                        })
+                    });
+
+                    window.location.href = '/house';
+                }
 
                 price_block.appendChild(price);
                 price_block.appendChild(price_button);
@@ -292,12 +309,8 @@
 
     function is_room_available(room, start_date, end_date) {
         if (start_date === null || end_date === null) {
-            console.log('null: ', start_date);
             return true;
         }
-
-        console.log(`dates: ${start_date} - ${end_date}`);
-        console.log(`room: ${room.reserved_date}`);
 
         return !room.reserved_date.some(date =>
             date >= start_date && date <= end_date
@@ -308,7 +321,6 @@
         const calendar = document.getElementById('calendar');
 
         create_calendar();
-        get_dates(2026, 9, calendar);
         fill_rooms();
     });
 </script>

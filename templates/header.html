@@ -2,7 +2,66 @@
 
 {% block header %}
 <header>
-    <img class="logo" src="" alt="">
-    <h2>Вільні вітри</h2>
+    <div class="logo">
+        <!-- <img class="logo" src="" alt=""> -->
+        <div class="triangle-container">
+            <div class="triangle"></div>
+        </div>
+        <h2>Вільні вітри</h2>
+    </div>
+
+    <div class="burger">
+        <button class="burger" id="burger">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+        <nav class="menu" id="menu">
+            <a href="/menu">Menu</a>
+            <a href="/rooms">Rooms</a>
+            <a href="/service">Services</a>
+            <a href="/contact">Contacts</a>
+        </nav>
+    </div>
+
 </header>
+
+<script>
+    const burger = document.getElementById("burger");
+    const menu = document.getElementById("menu");
+    const menuLinks = menu.querySelectorAll("a");
+
+    function openMenu() {
+        burger.classList.add("active");
+        menu.classList.add("active");
+
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeMenu() {
+        burger.classList.remove("active");
+        menu.classList.remove("active");
+
+        document.body.style.overflow = "";
+    }
+
+    burger.onclick = function () {
+        if (menu.classList.contains("active")) {
+            closeMenu();
+        } else {
+            openMenu();
+        }
+    };
+
+
+    // Close when clicking a link
+    menuLinks.forEach(link => {
+        link.onclick = function () {
+            closeMenu();
+        };
+    });
+
+
+</script>
 {% endblock %}

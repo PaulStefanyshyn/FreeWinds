@@ -1,30 +1,324 @@
 {% extends "base.html" %}
 
 {% block style %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/services.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/house.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="houses">
-    <h1>Лісова хатина</h1>
+    {% include 'header.html' %}
 
-    <div class="carusel"></div>
+<div class="houses">
+    <h1>{{ data.name }}</h1>
+
+    <div class="slider">
+        <img id="slider-image" src="" alt="">
+
+        <button id="prev-btn" class="slider-btn prev">‹</button>
+        <button id="next-btn" class="slider-btn next">›</button>
+
+        <div id="slider-dots" class="slider-dots"></div>
+    </div>
 
     <div class="about">
         <h2>Про номер</h2>
-        <p>Текст</p>
+        <p>{{ data.description }}</p>
 
         <div class="descript">
-            <p>1</p>
+            {% for param in data.room_parap %}
+            <p>{{ param }}</p>
+            {% endfor %}
         </div>
     </div>
 
     <div class="comfort">
-        <h1>Зручності</h1>
+        <h2>Зручності</h2>
 
         <div class="list">
-            
+            {% for comfort in data.comfort %}
+            <p>{{ comfort }}</p>
+            {% endfor %}
         </div>
     </div>
+
+    <div id="calendar"></div>
+
+    <button id="reserve">Забронювати</button>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const clicked_date = [];
+
+    const rooms = [
+        { name: "Лісова хатина", description: "Дерев'яна хатина на узліссі з каміном.", price: 2400, img: "/static/img/vodogray.png", reserved_date: [new Date(2026, 8, 1), new Date(2026, 8, 2)], param: ["2 гості", "25 м²", "1 спальня"], comfort: ["Двоспальне ліжко", "Камін", "Душ і ванна", "Wi-Fi", "Кавова зона", "Тераса", "Вид на ліс", "Опалення"] },
+        { name: "Гірський люкс", description: "Панорамні вікна на хребти Карпат.", price: 3800, img: "/static/img/vodogray.png", reserved_date: [new Date(2026, 8, 3), new Date(2026, 8, 4)], param: ["4 гості", "25 м²", "2 спальня"], comfort: ["Двоспальне ліжко", "Камін", "Душ і ванна", "Wi-Fi", "Кавова зона", "Тераса", "Вид на ліс", "Опалення"] },
+        { name: "Гірський люкс 2", description: "Панорамні вікна на хребти Карпат.", price: 3900, img: "/static/img/vodogray.png", reserved_date: [new Date(2026, 8, 5), new Date(2026, 8, 6)], param: ["6 гості", "25 м²", "3 спальня"], comfort: ["Двоспальне ліжко", "Камін", "Душ і ванна", "Wi-Fi", "Кавова зона", "Тераса", "Вид на ліс", "Опалення"] }
+    ]
+
+    function create_calendar(start_date = null) {
+        const calendar_block = document.getElementById('calendar');
+
+        const month_block = document.createElement('div');
+        month_block.classList.add('month');
+
+        const prev_btn = document.createElement('button');
+        prev_btn.classList.add('prev_month');
+
+        const next_btn = document.createElement('button');
+        next_btn.classList.add('next_month');
+
+        const month = document.createElement('h2');
+
+        let today = new Date();
+
+        if (start_date != null) {
+            today = start_date;
+        }
+
+        const curent_month = today.getMonth();
+        const curent_year = today.getFullYear();
+
+        let new_year = curent_year;
+
+        let date = new Date(new_year, curent_month, 1);
+
+        month.textContent = `${date.toLocaleString('uk-UA', { month: 'long' })}, ${new_year}`;
+
+        month.dataset.month = curent_month + 1;
+        month.dataset.year = new_year;
+
+        next_btn.onclick = function () {
+            const prev_month = Number(month.dataset.month);
+            const prev_year = Number(month.dataset.year);
+            let new_month = prev_month + 1;
+
+            if (new_month > 12) {
+                new_month = 1;
+                new_year = prev_year + 1;
+            }
+
+            month.dataset.month = new_month;
+            month.dataset.year = new_year;
+
+            date = new Date(new_year, new_month - 1, 1);
+            month.textContent = `${date.toLocaleString('uk-UA', { month: 'long' })}, ${new_year}`;
+
+            get_dates(new_year, new_month, calendar_block);
+        }
+
+        prev_btn.onclick = function () {
+            const prev_month = Number(month.dataset.month);
+            const prev_year = Number(month.dataset.year);
+            let new_month = prev_month - 1;
+
+            if (new_month < 1) {
+                new_month = 12;
+                new_year = prev_year - 1;
+            }
+
+            if (
+                new_year > curent_year ||
+                (new_year === curent_year && new_month >= curent_month + 1)
+            ) {
+                date = new Date(new_year, new_month - 1, 1);
+                month.textContent = `${date.toLocaleString('uk-UA', { month: 'long' })}, ${new_year}`;
+
+                month.dataset.month = new_month;
+                month.dataset.year = new_year;
+
+                get_dates(new_year, new_month, calendar_block);
+            }
+        };
+
+        month_block.appendChild(prev_btn);
+        month_block.appendChild(month);
+        month_block.appendChild(next_btn);
+
+        calendar_block.appendChild(month_block);
+
+        get_dates(new_year, curent_month + 1, calendar);
+    }
+
+    function get_dates(year, month, father_block) {
+        let weeks_day_container = document.querySelector('.week_day');
+
+        if (!weeks_day_container) {
+            weeks_day_container = document.createElement('div');
+            weeks_day_container.classList.add('week_day');
+        }
+
+        const getDayNames = (locale = 'en-US', format = 'long') => {
+            const formatter = new Intl.DateTimeFormat(locale, {
+                weekday: format
+            });
+
+            return Array.from({ length: 7 }, (_, i) =>
+                formatter.format(new Date(2025, 0, 5 + i))
+            );
+        };
+
+        const days = getDayNames('uk-UA', 'short');
+
+        weeks_day_container.innerHTML = "";
+
+        days.forEach(element => {
+            const day_name = document.createElement('p');
+            day_name.textContent = element;
+
+            weeks_day_container.appendChild(day_name);
+        });
+
+        father_block.appendChild(weeks_day_container);
+
+        const daysInMonth = new Date(year, month, 0).getDate();
+
+
+        let days_block = document.querySelector('.days');
+
+        if (!days_block) {
+            days_block = document.createElement('div');
+            days_block.classList.add('days');
+        }
+
+        days_block.innerHTML = "";
+
+        let start_day = new Date(year, month - 1, 1).getDay();
+
+        for (let i = 0; i < start_day; i++) {
+            const element = document.createElement('p');
+
+            days_block.appendChild(element);
+        }
+
+        for (let day = 0; day < daysInMonth; day++) {
+            const element = document.createElement('p');
+            element.textContent = day + 1;
+
+            element.onclick = function () {
+                const value = Number(element.textContent);
+
+                if (clicked_date.length === 0) {
+                    clicked_date.push(value);
+                }
+                else if (clicked_date.length === 1) {
+                    const start = Math.min(clicked_date[0], value);
+                    const end = Math.max(clicked_date[0], value);
+
+                    // Очистити старий масив
+                    clicked_date.length = 0;
+
+                    // Додати всі дні діапазону
+                    for (let day = start; day <= end; day++) {
+                        clicked_date.push(day);
+                    }
+                }
+                else {
+                    // Почати новий вибір
+                    clicked_date.length = 0;
+                    clicked_date.push(value);
+                }
+
+                const dat = document.querySelectorAll('.days p');
+
+                dat.forEach(el => {
+                    const day = Number(el.textContent);
+
+                    el.classList.remove('active', 'include');
+
+                    if (clicked_date.length === 1) {
+                        if (day === clicked_date[0]) {
+                            el.classList.add('active');
+                        }
+                    }
+                    else {
+                        // Перший і останній
+                        if (
+                            day === clicked_date[0] ||
+                            day === clicked_date[clicked_date.length - 1]
+                        ) {
+                            el.classList.add('active');
+                        }
+
+                        // Всі дні всередині
+                        else if (clicked_date.includes(day)) {
+                            el.classList.add('include');
+                        }
+                    }
+                });
+            };
+
+            days_block.appendChild(element);
+        }
+
+        father_block.appendChild(days_block);
+    }
+
+    function slideshow() {
+        const images = {{ data.img | tojson}};
+
+        const image = document.getElementById("slider-image");
+        const dots = document.getElementById("slider-dots");
+
+        let current = 0;
+
+        function showImage(index) {
+            current = index;
+
+            image.src = images[current];
+
+            document.querySelectorAll(".dot").forEach((dot, i) => {
+                dot.classList.toggle("active", i === current);
+            });
+        }
+
+        // Create as many dots as there are images
+        images.forEach((_, index) => {
+            const dot = document.createElement("button");
+
+            dot.classList.add("dot");
+
+            dot.onclick = () => {
+                showImage(index);
+            };
+
+            dots.appendChild(dot);
+        });
+
+        document.getElementById("next-btn").onclick = () => {
+            showImage((current + 1) % images.length);
+        };
+
+        document.getElementById("prev-btn").onclick = () => {
+            showImage((current - 1 + images.length) % images.length);
+        };
+
+        if (images.length > 0) {
+            showImage(0);
+        }
+
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        slideshow();
+
+        const calendar = document.getElementById('calendar');
+
+        const first = new Date({{ data.start_date | tojson }});
+        const last = new Date({{ data.end_date | tojson }});
+
+        create_calendar(first);
+
+        const days = document.querySelectorAll('.days p');
+
+        days.forEach(day => {
+            if (day.textContent == first.getDate() || day.textContent == last.getDate()) {
+                day.classList.add('active');
+            }
+            else if (day.textContent > first.getDate() && day.textContent < last.getDate()) {
+                day.classList.add('include');
+            }
+        });
+    });
+</script>
 {% endblock %}
