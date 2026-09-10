@@ -30,9 +30,9 @@
     const clicked_date = [];
 
     const rooms = [
-        { name: "Лісова хатина", description: "Дерев'яна хатина на узліссі з каміном.", price: 2400, img: "/static/img/vodogray.png", link: "/" },
-        { name: "Гірський люкс", description: "Панорамні вікна на хребти Карпат.", price: 3800, img: "/static/img/vodogray.png", link: "/" },
-        { name: "Гірський люкс 2", description: "Панорамні вікна на хребти Карпат.", price: 3900, img: "/static/img/vodogray.png", link: "/" }
+        { name: "Лісова хатина", description: "Дерев'яна хатина на узліссі з каміном.", price: 2400, img: "/static/img/vodogray.png", link: "/", reserved_date: [new Date(2026, 8, 1), new Date(2026, 8, 2)] },
+        { name: "Гірський люкс", description: "Панорамні вікна на хребти Карпат.", price: 3800, img: "/static/img/vodogray.png", link: "/", reserved_date: [new Date(2026, 8, 3), new Date(2026, 8, 4)] },
+        { name: "Гірський люкс 2", description: "Панорамні вікна на хребти Карпат.", price: 3900, img: "/static/img/vodogray.png", link: "/", reserved_date: [new Date(2026, 8, 5), new Date(2026, 8, 6)] }
     ]
 
     function create_calendar() {
@@ -227,6 +227,7 @@
                 first_date.textContent = `${clicked_date[0]} ${first_day_date.toLocaleString('uk-UA', { month: 'short' })}`;
                 last_date.textContent = `${clicked_date.at(-1)} ${last_day_date.toLocaleString('uk-UA', { month: 'short' })}`;
 
+                fill_rooms(first_day_date, last_day_date);
             };
 
             days_block.appendChild(element);
@@ -235,51 +236,72 @@
         father_block.appendChild(days_block);
     }
 
-    function fill_rooms() {
+    function fill_rooms(start_date = null, end_date = null) {
         const rooms_container = document.getElementById("rooms");
 
+        rooms_container.innerHTML = "";
+
+        console.log('f: ', start_date);
+        console.log('s: ', end_date);
+
         rooms.forEach(element => {
-            let room = document.createElement('div');
-            room.classList.add('room');
+            if (is_room_available(element, start_date, end_date)) {
+                let room = document.createElement('div');
+                room.classList.add('room');
 
-            let info = document.createElement('div');
-            info.classList.add('info');
+                let info = document.createElement('div');
+                info.classList.add('info');
 
-            let photo = document.createElement('img');
-            photo.src = element['img'];
-            photo.alt = element['name'];
+                let photo = document.createElement('img');
+                photo.src = element['img'];
+                photo.alt = element['name'];
 
-            let title = document.createElement('h1');
-            title.textContent = element['name'];
+                let title = document.createElement('h1');
+                title.textContent = element['name'];
 
-            let description = document.createElement('p');
-            description.textContent = element['description'];
+                let description = document.createElement('p');
+                description.textContent = element['description'];
 
-            let price_block = document.createElement('div');
-            price_block.classList.add('price_block');
+                let price_block = document.createElement('div');
+                price_block.classList.add('price_block');
 
-            let price = document.createElement('p');
-            price.textContent = element['price'];
+                let price = document.createElement('p');
+                price.textContent = element['price'];
 
-            let price_button = document.createElement('button');
-            price_button.textContent = "Детальніше";
-            
-            price_button.onclick = function () {
-                window.location.href = `https://${element['link']}`;
-            };
+                let price_button = document.createElement('button');
+                price_button.textContent = "Детальніше";
 
-            price_block.appendChild(price);
-            price_block.appendChild(price_button);
+                price_button.onclick = function () {
+                    window.location.href = `https://${element['link']}`;
+                };
 
-            info.appendChild(title);
-            info.appendChild(description);
-            info.appendChild(price_block);
+                price_block.appendChild(price);
+                price_block.appendChild(price_button);
 
-            room.appendChild(photo);
-            room.appendChild(info);
+                info.appendChild(title);
+                info.appendChild(description);
+                info.appendChild(price_block);
 
-            rooms_container.appendChild(room);
+                room.appendChild(photo);
+                room.appendChild(info);
+
+                rooms_container.appendChild(room);
+            }
         });
+    }
+
+    function is_room_available(room, start_date, end_date) {
+        if (start_date === null || end_date === null) {
+            console.log('null: ', start_date);
+            return true;
+        }
+
+        console.log(`dates: ${start_date} - ${end_date}`);
+        console.log(`room: ${room.reserved_date}`);
+
+        return !room.reserved_date.some(date =>
+            date >= start_date && date <= end_date
+        );
     }
 
     document.addEventListener("DOMContentLoaded", () => {
