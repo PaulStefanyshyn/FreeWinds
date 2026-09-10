@@ -5,36 +5,35 @@
 {% endblock %}
 
 {% block content %}
-<h1>Номери</h1>
-<p>Затишок серед гір і лісу</p>
-
-<div class="calendars_button">
-    <img src="" alt="">
-    <div id="selected_date">
-        <p id="for"></p>
-        <p id="to"></p>
-    </div>
-</div>
-
-<div id="calendar"></div>
-
 <div class="rooms">
-    <div class="room">
-        <img src="" alt="">
-        <h1>Лісова хатина</h1>
-        <p>Текст</p>
+    <div class="title">
+        <h1>Номери</h1>
+        <p>Затишок серед гір і лісу</p>
+    </div>
 
-        <div class="price">
-            <p>2400</p>
-            <button type="submit">Детальніше</button>
+    <div class="calendars_button">
+        <div id="selected_date">
+            <img src="{{ url_for('static', filename='img/calendar.png') }}" alt="">
+            <p id="for"></p>
+            <p id="to"></p>
         </div>
     </div>
+
+    <div id="calendar"></div>
+
+    <div id="rooms"></div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
     const clicked_date = [];
+
+    const rooms = [
+        { name: "Лісова хатина", description: "Дерев'яна хатина на узліссі з каміном.", price: 2400, img: "/static/img/vodogray.png", link: "/" },
+        { name: "Гірський люкс", description: "Панорамні вікна на хребти Карпат.", price: 3800, img: "/static/img/vodogray.png", link: "/" },
+        { name: "Гірський люкс 2", description: "Панорамні вікна на хребти Карпат.", price: 3900, img: "/static/img/vodogray.png", link: "/" }
+    ]
 
     function create_calendar() {
         const calendar_block = document.getElementById('calendar');
@@ -171,18 +170,24 @@
                 const value = Number(element.textContent);
 
                 if (clicked_date.length === 0) {
-                    clicked_date[0] = value;
+                    clicked_date.push(value);
                 }
                 else if (clicked_date.length === 1) {
-                    clicked_date[1] = value;
+                    const start = Math.min(clicked_date[0], value);
+                    const end = Math.max(clicked_date[0], value);
 
-                    // Make sure smaller date is first
-                    clicked_date.sort((a, b) => a - b);
+                    // Очистити старий масив
+                    clicked_date.length = 0;
+
+                    // Додати всі дні діапазону
+                    for (let day = start; day <= end; day++) {
+                        clicked_date.push(day);
+                    }
                 }
                 else {
-                    // Start a new selection
+                    // Почати новий вибір
                     clicked_date.length = 0;
-                    clicked_date[0] = value;
+                    clicked_date.push(value);
                 }
 
                 const dat = document.querySelectorAll('.days p');
@@ -193,20 +198,35 @@
                     el.classList.remove('active', 'include');
 
                     if (clicked_date.length === 1) {
-                        // Only first selected date
                         if (day === clicked_date[0]) {
                             el.classList.add('active');
                         }
                     }
-                    else if (clicked_date.length === 2) {
-                        if (day === clicked_date[0] || day === clicked_date[1]) {
+                    else {
+                        // Перший і останній
+                        if (
+                            day === clicked_date[0] ||
+                            day === clicked_date[clicked_date.length - 1]
+                        ) {
                             el.classList.add('active');
                         }
-                        else if (day > clicked_date[0] && day < clicked_date[1]) {
+
+                        // Всі дні всередині
+                        else if (clicked_date.includes(day)) {
                             el.classList.add('include');
                         }
                     }
                 });
+
+                const first_date = document.getElementById('for');
+                const last_date = document.getElementById('to');
+
+                let first_day_date = new Date(year, month - 1, clicked_date[0]);
+                let last_day_date = new Date(year, month - 1, clicked_date.at(-1));
+
+                first_date.textContent = `${clicked_date[0]} ${first_day_date.toLocaleString('uk-UA', { month: 'short' })}`;
+                last_date.textContent = `${clicked_date.at(-1)} ${last_day_date.toLocaleString('uk-UA', { month: 'short' })}`;
+
             };
 
             days_block.appendChild(element);
@@ -215,11 +235,59 @@
         father_block.appendChild(days_block);
     }
 
+    function fill_rooms() {
+        const rooms_container = document.getElementById("rooms");
+
+        rooms.forEach(element => {
+            let room = document.createElement('div');
+            room.classList.add('room');
+
+            let info = document.createElement('div');
+            info.classList.add('info');
+
+            let photo = document.createElement('img');
+            photo.src = element['img'];
+            photo.alt = element['name'];
+
+            let title = document.createElement('h1');
+            title.textContent = element['name'];
+
+            let description = document.createElement('p');
+            description.textContent = element['description'];
+
+            let price_block = document.createElement('div');
+            price_block.classList.add('price_block');
+
+            let price = document.createElement('p');
+            price.textContent = element['price'];
+
+            let price_button = document.createElement('button');
+            price_button.textContent = "Детальніше";
+            
+            price_button.onclick = function () {
+                window.location.href = `https://${element['link']}`;
+            };
+
+            price_block.appendChild(price);
+            price_block.appendChild(price_button);
+
+            info.appendChild(title);
+            info.appendChild(description);
+            info.appendChild(price_block);
+
+            room.appendChild(photo);
+            room.appendChild(info);
+
+            rooms_container.appendChild(room);
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         const calendar = document.getElementById('calendar');
 
         create_calendar();
         get_dates(2026, 9, calendar);
+        fill_rooms();
     });
 </script>
 {% endblock %}

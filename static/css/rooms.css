@@ -5,7 +5,7 @@
 
     padding: 16px;
 
-    width: 100%;
+    max-width: 100%;
 }
 
 #calendar .month{
@@ -15,6 +15,10 @@
     align-items: center;
 
     gap: 15px;
+}
+
+#calendar .month h2{
+    text-transform: capitalize;
 }
 
 #calendar .month button{
@@ -57,4 +61,138 @@
 .week_day,
 .days{
     text-align: center;
+}
+
+.days p{
+    cursor: pointer;
+    padding: 10px;
+}
+
+.days .active,
+.days .include{
+    border-radius: 50%;
+    background-color: #3C608D;
+}
+
+.days .include{
+    opacity: 60%;
+}
+
+.title{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+
+    gap: 10px;
+}
+
+.title p{
+    color: #8A8578;
+    font-size: 13px;
+}
+
+#selected_date{
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+
+    min-height: 36px;
+    max-width: 100%;
+
+    background-color: white;
+
+    border-radius: 16px;
+
+    margin: 10px 0px;
+    padding: 5px 25px;
+}
+
+#selected_date #for{
+    margin-right: 3px;
+}
+
+#selected_date #to::before{
+    content: " — ";
+}
+
+#selected_date img{
+    width: 18px;
+    height: 18px;
+
+    margin-right: 5px;
+}
+
+#rooms{
+    margin: 25px 0;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    gap: 20px;
+}
+
+#rooms .room img{
+    max-width: 100%;
+
+    border-radius: 16px 16px 0 0;
+}
+
+#rooms .room .info{
+    background-color: white;
+
+    padding: 20px;
+
+    border-radius: 0 0 16px 16px;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 8px;
+}
+
+#rooms .room .info h1{
+    font-size: 20px;
+}
+
+#rooms .room .info p{
+    font-size: 12px;
+    color: #8A8578;
+}
+
+#rooms .room .price_block{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+
+    padding-top: 7px;
+}
+
+.price_block p{
+    font-size: 18px !important;
+    color: black !important;
+    font-weight: bold;
+}
+
+.price_block p::after{
+
+    content: " ₴ / ніч";
+}
+
+.price_block button{
+    font-size: 13px;
+    color: white;
+    font-weight: bold;
+
+    padding: 10px 20px;
+
+    border-radius: 20px;
+    border: none;
+
+    background-color: #3C608D;
+
+    cursor: pointer;
 }
