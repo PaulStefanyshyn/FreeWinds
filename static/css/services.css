@@ -24,6 +24,8 @@
     border-radius: 20px;
 
     padding: 11px 11px 12px 11px;
+
+    cursor: pointer;
 }
 
 #propose .card img{

@@ -22,12 +22,20 @@ h2{
     color: #3C608D;
 }
 
-.app-container{
-
+.app-container{    
     display: flex;
     flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 .app-container div{
     max-width: 360px;
+}
+
+h1,
+h2,
+p,
+a{
+    font-family: Inter;
 }
