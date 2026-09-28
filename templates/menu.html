@@ -27,8 +27,41 @@
     const all_menu = [
         { type: "Сніданки", name: "Margherita", price: 150, img: "/static/img/vodogray.png" },
         { type: "Сніданки", name: "Pepperoni", price: 180, img: "/static/img/vodogray.png" },
+        { type: "Обіди", name: "Pepperoni", price: 180, img: "/static/img/vodogray.png" },
+        { type: "Вечері", name: "Pepperoni", price: 180, img: "/static/img/vodogray.png" },
+        { type: "Десерти", name: "Pepperoni", price: 180, img: "/static/img/vodogray.png" },
         { type: "Напої", name: "Cola", price: 50, img: "/static/img/vodogray.png" }
     ]
+
+    function getTypeListBtn() {
+        const btn_catalog = document.querySelector('.type');
+        btn_catalog.innerHTML = "";
+
+        let counter = 0;
+        const types = new Set();
+
+        all_menu.forEach(element => {
+            const type = element['type'];
+            if (types.has(type)) {
+                return;
+            }
+            types.add(type);
+
+            const btn = document.createElement('button');
+            btn.textContent = element['type'];
+            btn.onclick = function () {
+                getButton(this);
+            };
+
+            if (counter < 1) {
+                btn.classList.add('active');
+            }
+
+            btn_catalog.appendChild(btn);
+
+            counter++;
+        });
+    }
 
     function getButton(button) {
         const button_container = ".type";
@@ -91,6 +124,7 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
+        getTypeListBtn();
         const active_btn = document.querySelector(".type button.active");
         getButton(active_btn);
     });
