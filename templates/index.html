@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+{% endblock %}
+
+{% block content %}
+{% include 'header.html' %}
+
+<section class="home-hero">
+    <div class="hero-media">
+        <img src="{{ url_for('static', filename='img/vodogray.png') }}" alt="Відпочинок у Вільних вітрах">
+    </div>
+    <div class="hero-content">
+        <p class="eyebrow">Карпати · відпочинок · бронювання</p>
+        <h1>Вільні вітри</h1>
+        <p>Затишні номери, теплі чани, басейн і спокійний сервіс для відпочинку без зайвої метушні.</p>
+        <div class="hero-actions">
+            <a class="btn btn-primary" href="/service">Забронювати</a>
+            <a class="btn btn-secondary" href="/rooms">Переглянути номери</a>
+        </div>
+    </div>
+</section>
+
+<section class="quick-grid" aria-label="Основні можливості">
+    <a class="quick-card" href="/rooms">
+        <span>01</span>
+        <h2>Номери</h2>
+        <p>Оберіть дати та подивіться доступні варіанти проживання.</p>
+    </a>
+    <a class="quick-card" href="/service">
+        <span>02</span>
+        <h2>Послуги</h2>
+        <p>Басейн, чани, баня та інші послуги з швидким бронюванням.</p>
+    </a>
+    <a class="quick-card" href="/contact">
+        <span>03</span>
+        <h2>Контакти</h2>
+        <p>Маршрут, телефон та Instagram завжди під рукою.</p>
+    </a>
+</section>
+
+<section class="home-panel">
+    <div>
+        <p class="eyebrow">Telegram WebApp</p>
+        <h2>Бронювання в кілька натискань</h2>
+        <p>Відкрийте додаток у Telegram, виберіть послугу, дату й час. Backend перевірить ваш Telegram-профіль і доступність слоту.</p>
+    </div>
+    <a class="btn btn-primary" href="/service">Почати</a>
+</section>
+{% endblock %}

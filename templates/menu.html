@@ -7,90 +7,79 @@
 {% block content %}
 {% include 'header.html' %}
 
-<div class="menu">
-    <h1>Меню</h1>
-
-    <div class="type">
-        <button class="active" onclick="getButton(this)">Сніданки</button>
-        <button onclick="getButton(this)">Гарніри</button>
-        <button onclick="getButton(this)">Салати</button>
-        <button onclick="getButton(this)">Супи</button>
-        <button onclick="getButton(this)">Напої</button>
+<div class="food-menu">
+    <div class="page-title">
+        <p class="eyebrow">Restaurant</p>
+        <h1>Меню</h1>
+        <p>Сніданки, напої та страви для спокійного відпочинку протягом дня.</p>
     </div>
 
-    <div id="catalog"></div>
+    <div class="type">
+        <button class="active" type="button" disabled>Завантаження...</button>
+    </div>
+
+    <div id="catalog">
+        <div class="menu-loading">Завантажуємо меню...</div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    const all_menu = [
-        { type: "Сніданки", name: "Margherita", price: 150, img: "/static/img/vodogray.png" },
-        { type: "Сніданки", name: "Pepperoni", price: 180, img: "/static/img/vodogray.png" },
-        { type: "Обіди", name: "Pepperoni", price: 180, img: "/static/img/vodogray.png" },
-        { type: "Вечері", name: "Pepperoni", price: 180, img: "/static/img/vodogray.png" },
-        { type: "Десерти", name: "Pepperoni", price: 180, img: "/static/img/vodogray.png" },
-        { type: "Напої", name: "Cola", price: 50, img: "/static/img/vodogray.png" }
-    ]
+    let menuCategories = [];
 
     function getTypeListBtn() {
         const btn_catalog = document.querySelector('.type');
         btn_catalog.innerHTML = "";
 
-        let counter = 0;
-        const types = new Set();
-
-        all_menu.forEach(element => {
-            const type = element['type'];
-            if (types.has(type)) {
-                return;
-            }
-            types.add(type);
-
+        menuCategories.forEach((category, index) => {
             const btn = document.createElement('button');
-            btn.textContent = element['type'];
+            btn.type = "button";
+            btn.textContent = category.name;
+            btn.dataset.categoryId = category.id;
             btn.onclick = function () {
                 getButton(this);
             };
 
-            if (counter < 1) {
+            if (index === 0) {
                 btn.classList.add('active');
             }
 
             btn_catalog.appendChild(btn);
-
-            counter++;
         });
     }
 
     function getButton(button) {
+        if (!button) {
+            return;
+        }
+
         const button_container = ".type";
         change_active(button_container, button);
 
-        const type = button.textContent;
+        const categoryId = Number(button.dataset.categoryId);
+        const category = menuCategories.find(item => item.id === categoryId);
         const menu_block = document.getElementById('catalog');
 
         menu_block.innerHTML = "";
 
-        all_menu.forEach(menu => {
-            if (menu['type'] == type) {
-                const name = menu['name'];
-                const price = menu['price'];
-                const img = menu['img'];
+        if (!category || category.items.length === 0) {
+            menu_block.innerHTML = '<div class="empty-state"><h3>Поки немає страв</h3><p>Спробуйте іншу категорію.</p></div>';
+            return;
+        }
 
-                const card = create_menu_card(name, price, img);
-
-                menu_block.appendChild(card);
-            }
+        category.items.forEach(menu => {
+            const card = create_menu_card(menu.name, menu.price, menu.image_url, menu.description);
+            menu_block.appendChild(card);
         });
     }
 
-    function create_menu_card(name, price, image) {
+    function create_menu_card(name, price, image, text) {
         const card = document.createElement("div");
         card.classList.add("card");
 
         const img = document.createElement("img");
-        img.src = image;
+        img.src = image || "/static/img/vodogray.png";
         img.alt = name;
 
         const description = document.createElement("div");
@@ -100,13 +89,21 @@
         title.textContent = name;
 
         const pricelot = document.createElement("p");
-        pricelot.textContent = price;
+        pricelot.textContent = Number(price).toFixed(0);
 
         description.appendChild(title);
+
+        if (text) {
+            const details = document.createElement("span");
+            details.textContent = text;
+            description.appendChild(details);
+        }
+
         description.appendChild(pricelot);
 
         card.appendChild(img);
         card.appendChild(description);
+        card.tabIndex = 0;
 
         return card;
     }
@@ -124,9 +121,33 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-        getTypeListBtn();
-        const active_btn = document.querySelector(".type button.active");
-        getButton(active_btn);
+        loadMenu();
     });
+
+    async function loadMenu() {
+        const menu_block = document.getElementById('catalog');
+        const buttons = document.querySelector('.type');
+        try {
+            const response = await fetch('/api/menu');
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || "Не вдалося завантажити меню");
+            }
+
+            menuCategories = data.categories || [];
+            if (menuCategories.length === 0) {
+                buttons.innerHTML = "";
+                menu_block.innerHTML = '<div class="empty-state"><h3>Меню поки порожнє</h3><p>Страви зʼявляться після оновлення адміністратором.</p></div>';
+                return;
+            }
+
+            getTypeListBtn();
+            getButton(document.querySelector(".type button.active"));
+        } catch (error) {
+            buttons.innerHTML = '<button type="button" disabled>Недоступно</button>';
+            menu_block.innerHTML = '<div class="empty-state"><h3>Не вдалося завантажити меню</h3><p>Перевірте підключення або спробуйте пізніше.</p><button class="secondary" type="button" id="retry_menu">Спробувати ще раз</button></div>';
+            document.getElementById("retry_menu").onclick = loadMenu;
+        }
+    }
 </script>
 {% endblock %}

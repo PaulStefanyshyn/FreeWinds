@@ -1,160 +1,440 @@
-.services > *{
-    margin-bottom: 14px;
-}
-
-.services p{
-    font-size: 12px;
-    color: #8A8578;
-}
-
-#propose{
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-}
-
-#propose .card{
+.services {
     display: flex;
     flex-direction: column;
-
-    gap: 5px;
-
-    background-color: white;
-
-    border-radius: 20px;
-
-    padding: 11px 11px 12px 11px;
-
-    cursor: pointer;
+    gap: 18px;
 }
 
-#propose .card img{
-    width: 150px;
-    height: 100px;
-
-    border-radius: 12px;
-
-    object-fit: cover;
+.booking-hero {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    gap: 18px;
+    padding: clamp(20px, 4vw, 34px);
+    background: linear-gradient(145deg, rgba(49, 95, 119, 0.13), rgba(255, 253, 248, 0.88));
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
 }
 
-#propose .card h2{
-    color: black;
-    font-size: 13px;
+.booking-title h1 {
+    margin-top: 6px;
 }
 
-#propose .card p{
-    font-size: 11px;
-    color: #B89356;
-    font-weight: bold;
-}
-
-#propose .card p::after{
-    content: " ₴ / год";
-}
-
-.dates h2,
-.times h2{
-    font-size: 10px;
-    text-transform: uppercase;
-    color: #B89356;
-}
-
-#dates_catalog{
-    display: flex;
-    flex-direction: row;
-    justify-content: space-around;
-    align-items: center;
-
+.booking-title p:not(.eyebrow) {
+    max-width: 620px;
     margin-top: 10px;
 }
 
-#dates_catalog .date{
-    width: 60px;
-    height: 60px;
+.back-link {
+    min-width: 92px;
+    padding: 0 16px;
+    background: var(--color-surface);
+    color: var(--color-primary);
+    border: 1px solid var(--color-border);
+    font-weight: 800;
+}
 
-    background-color: #DDDDDD;
+.booking-steps {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
 
-    border-radius: 10px;
+.step {
+    position: relative;
+    min-height: 76px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 253, 248, 0.72);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
 
+.step span {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    background: var(--color-surface-soft);
+    color: var(--color-muted);
+    font-weight: 900;
+}
+
+.step p {
+    color: var(--color-text);
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.step.active,
+.step.done {
+    border-color: rgba(49, 95, 119, 0.32);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+}
+
+.step.active span,
+.step.done span {
+    background: var(--color-primary);
+    color: white;
+}
+
+.booking-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    gap: 18px;
+    align-items: start;
+}
+
+.booking-main {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.booking-section,
+.summary-card,
+.my-bookings {
+    padding: clamp(18px, 3vw, 26px);
+    background: rgba(255, 253, 248, 0.88);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+}
+
+#propose {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+#propose .card {
+    position: relative;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: hidden;
+    background: var(--color-surface);
+    border: 2px solid transparent;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 6px 18px rgba(40, 34, 26, 0.06);
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#propose .card:hover,
+#propose .card:focus-visible {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+    outline: none;
+}
+
+#propose .card.active {
+    border-color: var(--color-primary);
+}
+
+#propose .card img {
+    width: 100%;
+    height: 128px;
+    object-fit: cover;
+}
+
+#propose .card h2,
+#propose .card p,
+#propose .card span {
+    margin-left: 14px;
+    margin-right: 14px;
+}
+
+#propose .card h2 {
+    color: var(--color-text);
+    font-size: 17px;
+}
+
+#propose .card p {
+    color: var(--color-secondary);
+    font-size: 14px;
+    font-weight: 900;
+}
+
+#propose .card p::after {
+    content: " грн / год";
+}
+
+#propose .card span {
+    width: fit-content;
+    margin-bottom: 14px;
+    padding: 5px 9px;
+    color: var(--color-primary);
+    background: rgba(49, 95, 119, 0.1);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+#dates_catalog {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(82px, 1fr));
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+#dates_catalog::-webkit-scrollbar,
+#times_catalog::-webkit-scrollbar {
+    display: none;
+}
+
+#dates_catalog .date {
+    min-width: 82px;
+    min-height: 104px;
+    padding: 12px 10px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: center;
-
-    gap: 5px;
-
+    gap: 4px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
     cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
-#dates_catalog .date.active{
-    background-color: #3C608D;
+#dates_catalog .date:hover {
+    transform: translateY(-2px);
 }
 
-#dates_catalog .date p{
-    font-size: 11px;
-    color: black;
+#dates_catalog .date.active {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}
 
+#dates_catalog .date p {
+    color: var(--color-muted);
+    font-size: 12px;
+    font-weight: 800;
     text-transform: lowercase;
 }
 
+#dates_catalog .date h1 {
+    color: var(--color-text);
+    font-size: 30px;
+}
+
+#dates_catalog .date span {
+    color: var(--color-muted);
+    font-size: 11px;
+}
+
 #dates_catalog .date.active p,
-#dates_catalog .date.active h1{
+#dates_catalog .date.active h1,
+#dates_catalog .date.active span {
     color: white;
 }
 
-#dates_catalog .date h1{
-    font-size: 17px;
-    color: black;
-    font-weight: bold;
+#times_catalog {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(86px, 1fr));
+    gap: 10px;
 }
 
-#times_catalog{
+#times_catalog p {
+    min-height: 54px;
+    display: grid;
+    place-items: center;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 17px;
+    font-size: 15px;
+    font-weight: 900;
+    cursor: pointer;
+    transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+#times_catalog p:hover,
+#times_catalog p:focus-visible {
+    transform: translateY(-2px);
+    border-color: rgba(49, 95, 119, 0.38);
+    outline: none;
+}
+
+#times_catalog p.active {
+    color: white;
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.booking-summary {
+    position: sticky;
+    top: 104px;
+}
+
+.summary-card {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.summary-card h2 {
+    font-size: 24px;
+}
+
+.summary-card dl {
+    display: grid;
+    gap: 10px;
+}
+
+.summary-card dl div {
+    display: flex;
     justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-
-    gap: 5px;
-    padding: 15px;    
+    gap: 12px;
+    padding: 12px;
+    background: var(--color-surface-soft);
+    border-radius: var(--radius-md);
 }
 
-#times_catalog p{
-    width: 50px;
+.summary-card dt {
+    color: var(--color-muted);
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
 
+.summary-card dd {
+    color: var(--color-text);
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.comment {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--color-secondary);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.comment textarea {
+    min-height: 96px;
+    resize: vertical;
+    padding: 13px 14px;
+    color: var(--color-text);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    text-transform: none;
+}
+
+.booking-message {
+    min-height: 22px;
     font-size: 13px;
-    font-weight: bold;
-    text-align: center;
-    color: black;
-
-    padding: 10px 20px;
-
-    background-color: #DDDDDD;
-
-    border-radius: 10px;
-
-    cursor: pointer;
+    font-weight: 800;
 }
 
-#times_catalog .active{
-    background-color: #3C608D;
-
-    color: white;
+.booking-message.error {
+    color: var(--color-error);
 }
 
-.services button{
-    width: 100%;
+.booking-message.success {
+    color: var(--color-success);
+}
 
-    text-align: center;
-    color: white;
-    font-weight: bold;
+.my-bookings {
+    margin-top: 0;
+}
 
-    background-color: #3C608D;
+#bookings_catalog {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
 
-    padding: 20px;
+.booking-card {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+}
 
-    border-radius: 16px;
-    border: none;
+.booking-card h3 {
+    font-size: 17px;
+}
 
-    cursor: pointer;
+.booking-card button {
+    align-self: flex-start;
+    min-height: 40px;
+    padding: 0 14px;
+    color: var(--color-error);
+    background: rgba(166, 67, 67, 0.1);
+    font-size: 13px;
+    font-weight: 900;
+}
+
+.skeleton-card {
+    min-height: 220px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(90deg, var(--color-surface-soft), #fbf8f0, var(--color-surface-soft));
+    background-size: 220% 100%;
+    animation: shimmer 1.2s infinite linear;
+}
+
+.skeleton-line {
+    min-width: 82px;
+    min-height: 104px;
+    border-radius: 20px;
+    background: linear-gradient(90deg, var(--color-surface-soft), #fbf8f0, var(--color-surface-soft));
+    background-size: 220% 100%;
+    animation: shimmer 1.2s infinite linear;
+}
+
+@keyframes shimmer {
+    to {
+        background-position: -220% 0;
+    }
+}
+
+@media (max-width: 940px) {
+    .booking-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .booking-summary {
+        position: static;
+    }
+}
+
+@media (max-width: 720px) {
+    .booking-hero {
+        grid-template-columns: 1fr;
+    }
+
+    .back-link {
+        width: fit-content;
+    }
+
+    .booking-steps {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    #propose,
+    #bookings_catalog {
+        grid-template-columns: 1fr;
+    }
+
+    #dates_catalog {
+        display: flex;
+    }
+
+    #times_catalog {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }

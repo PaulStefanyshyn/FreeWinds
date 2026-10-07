@@ -1,0 +1,91 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Restaurant{% endblock %}
+{% block title %}Menu{% endblock %}
+
+{% block content %}
+<section class="admin-panel">
+    <div class="panel-head">
+        <h2>Страви</h2>
+        <a class="admin-primary link-button" href="{{ url_for('admin_menu_new') }}">Add dish</a>
+    </div>
+
+    <form class="filter-bar" method="get">
+        <label>
+            <span>Category</span>
+            <select name="category_id">
+                <option value="">All</option>
+                {% for category in categories %}
+                <option value="{{ category.id }}" {{ 'selected' if filters.category_id == category.id else '' }}>{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            <span>Availability</span>
+            <select name="availability">
+                <option value="">All</option>
+                <option value="available" {{ 'selected' if filters.availability == 'available' else '' }}>Available</option>
+                <option value="unavailable" {{ 'selected' if filters.availability == 'unavailable' else '' }}>Unavailable</option>
+            </select>
+        </label>
+        <label class="wide">
+            <span>Search</span>
+            <input name="q" value="{{ filters.q or '' }}" placeholder="Dish, description, category">
+        </label>
+        <button type="submit" class="admin-primary">Filter</button>
+    </form>
+
+    {% if items %}
+    <div class="table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Image</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Sort</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>
+                        {% if item.image_url %}
+                        <img class="admin-thumb" src="{{ item.image_url }}" alt="{{ item.name }}">
+                        {% else %}
+                        <span class="thumb-empty">No image</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ item.name }}</strong>
+                        <small>{{ item.description or 'No description' }}</small>
+                    </td>
+                    <td>{{ item.category_name }}</td>
+                    <td>{{ '%.2f'|format(item.price) }} грн</td>
+                    <td>
+                        <span class="status-badge {{ 'confirmed' if item.is_active and item.is_available else 'cancelled' }}">
+                            {{ 'active' if item.is_active and item.is_available else 'hidden' if not item.is_active else 'unavailable' }}
+                        </span>
+                    </td>
+                    <td>{{ item.sort_order }}</td>
+                    <td class="table-actions">
+                        <a class="table-action" href="{{ url_for('admin_menu_edit', item_id=item.id) }}">Edit</a>
+                        {% if item.is_active %}
+                        <form method="post" action="{{ url_for('admin_menu_deactivate', item_id=item.id) }}" onsubmit="return confirm('Деактивувати страву?');">
+                            <button type="submit" class="danger-link">Deactivate</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="admin-empty">Страв не знайдено. Додайте першу страву або змініть фільтри.</div>
+    {% endif %}
+</section>
+{% endblock %}

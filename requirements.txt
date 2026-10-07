@@ -1,1 +1,3 @@
 Flask
+aiogram
+mysql-connector-python

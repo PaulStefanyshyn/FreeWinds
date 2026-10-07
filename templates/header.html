@@ -1,45 +1,81 @@
-{% extends "base.html" %}
-
-{% block header %}
-<header>
-    <div class="logo">
-        <!-- <img class="logo" src="" alt=""> -->
+<header class="site-header">
+    <a class="logo" href="/" aria-label="Вільні вітри">
         <div class="triangle-container">
             <div class="triangle"></div>
         </div>
-        <h2>Вільні вітри</h2>
-    </div>
+        <div>
+            <h2>Вільні вітри</h2>
+            <p>hotel & spa</p>
+        </div>
+    </a>
 
-    <div class="burger">
-        <button class="burger" id="burger">
+    <div class="burger-wrap">
+        <button class="burger" id="burger" type="button" aria-label="Відкрити меню" aria-expanded="false" aria-controls="menu">
             <span></span>
             <span></span>
             <span></span>
         </button>
+    </div>
+</header>
 
-        <nav class="menu" id="menu">
-            <a href="/menu">Menu</a>
-            <a href="/rooms">Rooms</a>
-            <a href="/service">Services</a>
-            <a href="/contact">Contacts</a>
+<div class="menu-backdrop" id="menu_backdrop"></div>
 
-            <div class="cont">
-                <p>+38 099 123 45 67</p>
-                <p>vilnivitry_hotel</p>
+<nav class="site-menu" id="menu" aria-label="Головна навігація" tabindex="-1">
+    <div class="menu-head">
+        <a class="menu-brand" href="/" aria-label="Вільні вітри">
+            <div class="triangle-container">
+                <div class="triangle"></div>
             </div>
-        </nav>
+            <div>
+                <strong>Вільні вітри</strong>
+                <span>hotel & spa</span>
+            </div>
+        </a>
+        <button class="menu-close" id="menu_close" type="button" aria-label="Закрити меню">
+            <span></span>
+            <span></span>
+        </button>
     </div>
 
-</header>
+    <div class="menu-nav">
+        <a href="/" data-path="/">
+            <span>Головна</span>
+        </a>
+        <a href="/rooms" data-path="/rooms">
+            <span>Номери</span>
+        </a>
+        <a href="/service" data-path="/service">
+            <span>Бронювання</span>
+        </a>
+        <a href="/menu" data-path="/menu">
+            <span>Меню</span>
+        </a>
+        <a href="/contact" data-path="/contact">
+            <span>Контакти</span>
+        </a>
+    </div>
+
+    <div class="cont">
+        <span>Потрібна допомога?</span>
+        <p>+38 099 123 45 67</p>
+        <p>vilnivitry_hotel</p>
+        <a class="menu-cta" href="/service">Забронювати</a>
+    </div>
+</nav>
 
 <script>
     const burger = document.getElementById("burger");
     const menu = document.getElementById("menu");
+    const backdrop = document.getElementById("menu_backdrop");
+    const closeButton = document.getElementById("menu_close");
     const menuLinks = menu.querySelectorAll("a");
 
     function openMenu() {
         burger.classList.add("active");
         menu.classList.add("active");
+        backdrop.classList.add("active");
+        burger.setAttribute("aria-expanded", "true");
+        menu.focus({ preventScroll: true });
 
         document.body.style.overflow = "hidden";
     }
@@ -47,6 +83,8 @@
     function closeMenu() {
         burger.classList.remove("active");
         menu.classList.remove("active");
+        backdrop.classList.remove("active");
+        burger.setAttribute("aria-expanded", "false");
 
         document.body.style.overflow = "";
     }
@@ -60,13 +98,25 @@
     };
 
 
+    const currentPath = window.location.pathname === "/house" ? "/rooms" : window.location.pathname;
+
     // Close when clicking a link
     menuLinks.forEach(link => {
+        if (link.dataset.path === currentPath) {
+            link.classList.add("current");
+        }
+
         link.onclick = function () {
             closeMenu();
         };
     });
 
+    closeButton.onclick = closeMenu;
+    backdrop.onclick = closeMenu;
 
+    document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && menu.classList.contains("active")) {
+            closeMenu();
+        }
+    });
 </script>
-{% endblock %}

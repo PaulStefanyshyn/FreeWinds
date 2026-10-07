@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreeWinds Admin Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="admin-body login-body">
+    <main class="login-card">
+        <div class="admin-brand">
+            <span>FW</span>
+            <div>
+                <strong>FreeWinds</strong>
+                <small>Admin panel</small>
+            </div>
+        </div>
+        <div class="login-title">
+            <p class="eyebrow">Secure area</p>
+            <h1>Вхід адміністратора</h1>
+            <p>Використовуйте admin credentials, створені через CLI або `.env` bootstrap.</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-stack">
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="post" class="admin-form">
+            <label>
+                <span>Username</span>
+                <input name="username" autocomplete="username" required>
+            </label>
+            <label>
+                <span>Password</span>
+                <input name="password" type="password" autocomplete="current-password" required>
+            </label>
+            <button type="submit" class="admin-primary">Login</button>
+        </form>
+    </main>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Operations{% endblock %}
+{% block title %}Bookings{% endblock %}
+
+{% block content %}
+<section class="admin-panel">
+    <form class="filter-bar" method="get">
+        <label>
+            <span>Period</span>
+            <select name="period">
+                {% for value, label in [('today', 'Today'), ('upcoming', 'Upcoming'), ('past', 'Past'), ('all', 'All')] %}
+                <option value="{{ value }}" {{ 'selected' if filters.period == value else '' }}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            <span>Status</span>
+            <select name="status">
+                <option value="">All</option>
+                {% for status in statuses %}
+                <option value="{{ status }}" {{ 'selected' if filters.status == status else '' }}>{{ status }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            <span>Date</span>
+            <input type="date" name="date" value="{{ filters.date or '' }}">
+        </label>
+        <label class="wide">
+            <span>Search</span>
+            <input name="q" value="{{ filters.q or '' }}" placeholder="Client, username, phone, service">
+        </label>
+        <button type="submit" class="admin-primary">Filter</button>
+    </form>
+
+    {% include "admin/partials/booking_table.html" %}
+</section>
+{% endblock %}

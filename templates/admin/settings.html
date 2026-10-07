@@ -1,0 +1,38 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}System{% endblock %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<section class="admin-panel detail-list">
+    <div class="panel-head">
+        <h2>Configuration status</h2>
+    </div>
+    <dl>
+        <div>
+            <dt>Telegram bot token</dt>
+            <dd><span class="status-badge {{ 'confirmed' if settings.telegram_token_configured else 'cancelled' }}">{{ 'configured' if settings.telegram_token_configured else 'missing' }}</span></dd>
+        </div>
+        <div>
+            <dt>Bookings group chat ID</dt>
+            <dd><span class="status-badge {{ 'confirmed' if settings.telegram_chat_configured else 'cancelled' }}">{{ 'configured' if settings.telegram_chat_configured else 'missing' }}</span></dd>
+        </div>
+        <div>
+            <dt>Admin bootstrap env</dt>
+            <dd><span class="status-badge {{ 'confirmed' if settings.admin_username_configured else 'pending' }}">{{ 'configured' if settings.admin_username_configured else 'optional' }}</span></dd>
+        </div>
+    </dl>
+</section>
+
+<section class="admin-panel">
+    <div class="panel-head">
+        <h2>Telegram group setup</h2>
+    </div>
+    <ol class="instruction-list">
+        <li>Додайте поточного Telegram bot у групу для персоналу.</li>
+        <li>Отримайте group chat ID через getUpdates або тимчасовий diagnostic handler.</li>
+        <li>Запишіть ID у `TELEGRAM_BOOKINGS_CHAT_ID`.</li>
+        <li>Перезапустіть Flask/bot service та створіть тестове бронювання.</li>
+    </ol>
+</section>
+{% endblock %}

@@ -8,7 +8,10 @@
     {% include 'header.html' %}
 
 <div class="houses">
-    <h1>{{ data.name }}</h1>
+    <div class="page-title">
+        <p class="eyebrow">Room details</p>
+        <h1>{{ data.name }}</h1>
+    </div>
 
     <div class="slider">
         <img id="slider-image" src="" alt="">
@@ -42,7 +45,7 @@
 
     <div id="calendar"></div>
 
-    <button id="reserve">Забронювати</button>
+    <button id="reserve" type="button">Забронювати послугу</button>
 </div>
 {% endblock %}
 
@@ -319,6 +322,10 @@
                 day.classList.add('include');
             }
         });
+
+        document.getElementById("reserve").onclick = function () {
+            window.location.href = "/service";
+        };
     });
 </script>
 {% endblock %}

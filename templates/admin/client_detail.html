@@ -1,0 +1,42 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Client #{{ client.id }}{% endblock %}
+{% block title %}{{ client.display_name }}{% endblock %}
+
+{% block content %}
+<div class="admin-grid two">
+    <section class="admin-panel detail-list">
+        <div class="panel-head">
+            <h2>Профіль</h2>
+        </div>
+        <dl>
+            <div><dt>Telegram ID</dt><dd>{{ client.telegram_user_id }}</dd></div>
+            <div><dt>Username</dt><dd>{{ '@' ~ client.username if client.username else '-' }}</dd></div>
+            <div><dt>Імʼя</dt><dd>{{ client.first_name or '-' }}</dd></div>
+            <div><dt>Прізвище</dt><dd>{{ client.last_name or '-' }}</dd></div>
+            <div><dt>Мова</dt><dd>{{ client.language_code or '-' }}</dd></div>
+            <div><dt>Телефон</dt><dd>{{ client.phone or '-' }}</dd></div>
+            <div><dt>Email</dt><dd>{{ client.email or '-' }}</dd></div>
+            <div><dt>Status</dt><dd>{{ client.status }}</dd></div>
+            <div><dt>Created</dt><dd>{{ client.created_at }}</dd></div>
+            <div><dt>Last seen</dt><dd>{{ client.last_seen or '-' }}</dd></div>
+        </dl>
+    </section>
+
+    <section class="admin-panel">
+        <div class="panel-head">
+            <h2>Upcoming</h2>
+        </div>
+        {% set bookings = client.upcoming_bookings %}
+        {% include "admin/partials/booking_table.html" with context %}
+    </section>
+</div>
+
+<section class="admin-panel">
+    <div class="panel-head">
+        <h2>Booking history</h2>
+    </div>
+    {% set bookings = client.bookings %}
+    {% include "admin/partials/booking_table.html" with context %}
+</section>
+{% endblock %}

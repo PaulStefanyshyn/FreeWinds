@@ -8,124 +8,340 @@
     {% include 'header.html' %}
 
 <div class="services">
-    <h1>Послуги</h1>
-    <p>Відпочинок для душі та тіла</p>
-
-    <div id="propose">
-        <div class="card">
-            <img src="" alt="">
-            <h1>Басейн</h1>
-            <p>300</p>
+    <div class="booking-hero">
+        <button class="back-link" type="button" onclick="history.back()">Назад</button>
+        <div class="booking-title">
+            <p class="eyebrow">Telegram booking</p>
+            <h1>Бронювання</h1>
+            <p>Оберіть послугу, дату та зручний час. Ми перевіримо доступність перед підтвердженням.</p>
         </div>
     </div>
 
-    <div class="dates">
-        <h2>Дати</h2>
-
-        <div id="dates_catalog"></div>
+    <div class="booking-steps" aria-label="Кроки бронювання">
+        <div class="step active" data-step="service">
+            <span>1</span>
+            <p>Послуга</p>
+        </div>
+        <div class="step" data-step="date">
+            <span>2</span>
+            <p>Дата</p>
+        </div>
+        <div class="step" data-step="time">
+            <span>3</span>
+            <p>Час</p>
+        </div>
+        <div class="step" data-step="confirm">
+            <span>4</span>
+            <p>Підтвердження</p>
+        </div>
     </div>
 
-    <div class="times">
-        <h2>Час</h2>
+    <div class="booking-layout">
+        <div class="booking-main">
+            <section class="booking-section">
+                <div class="section-title">
+                    <span>01</span>
+                    <div>
+                        <h2>Послуга</h2>
+                        <p>Виберіть, що хочете забронювати.</p>
+                    </div>
+                </div>
+                <div id="propose">
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                </div>
+            </section>
 
-        <div id="times_catalog"></div>
+            <section class="booking-section">
+                <div class="section-title">
+                    <span>02</span>
+                    <div>
+                        <h2>Дата</h2>
+                        <p>Показуємо тільки дати з вільними слотами.</p>
+                    </div>
+                </div>
+                <div id="dates_catalog">
+                    <p class="state">Оберіть послугу</p>
+                </div>
+            </section>
+
+            <section class="booking-section">
+                <div class="section-title">
+                    <span>03</span>
+                    <div>
+                        <h2>Час</h2>
+                        <p>Слот бронюється тільки після серверної перевірки.</p>
+                    </div>
+                </div>
+                <div id="times_catalog">
+                    <p class="state">Оберіть дату</p>
+                </div>
+            </section>
+        </div>
+
+        <aside class="booking-summary">
+            <div class="summary-card">
+                <p class="eyebrow">Ваш вибір</p>
+                <h2 id="summary_service">Послугу не вибрано</h2>
+                <dl>
+                    <div>
+                        <dt>Дата</dt>
+                        <dd id="summary_date">-</dd>
+                    </div>
+                    <div>
+                        <dt>Час</dt>
+                        <dd id="summary_time">-</dd>
+                    </div>
+                </dl>
+
+                <label class="comment">
+                    <span>Коментар</span>
+                    <textarea id="comment" rows="3" placeholder="Наприклад: буду на 2 гостей"></textarea>
+                </label>
+
+                <div id="booking_message" class="booking-message" aria-live="polite"></div>
+
+                <button id="book_button" class="btn btn-primary" type="button" disabled>Підтвердити бронювання</button>
+            </div>
+        </aside>
     </div>
 
-    <button type="submit">Забронювати</button>
+    <div class="my-bookings">
+        <div class="section-title">
+            <span>04</span>
+            <div>
+                <h2>Мої бронювання</h2>
+                <p>Ваші активні й майбутні записи.</p>
+            </div>
+        </div>
+        <div id="bookings_catalog">
+            <p class="state">Після входу через Telegram тут з'являться ваші бронювання.</p>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    const all_services = [
-        { name: "Басейн", price: 150, img: "/static/img/vodogray.png" },
-        { name: "Чани", price: 180, img: "/static/img/vodogray.png" },
-        { name: "Баня", price: 50, img: "/static/img/vodogray.png" },
-        { name: "Більярд", price: 360, img: "/static/img/vodogray.png" }
-    ]
+    const telegram = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    const initData = telegram ? telegram.initData : "";
 
-    const free_time = [
-        { date: '09.01.2026', time: ["10:00", "12:00", "14:00", "16:00", "18:00", "20:00"] },
-        { date: '09.02.2026', time: ["08:00", "12:00", "14:00", "16:00", "18:00", "20:00"] },
-        { date: '09.03.2026', time: ["09:00", "12:00", "14:00", "16:00", "18:00", "20:00"] },
-        { date: '09.04.2026', time: ["11:00", "12:00", "14:00", "16:00", "18:00", "20:00"] }
-    ]
+    const state = {
+        services: [],
+        serviceId: null,
+        bookingDate: null,
+        bookingTime: null,
+        serviceName: "",
+        loading: false
+    };
+
+    if (telegram) {
+        telegram.ready();
+        telegram.expand();
+    }
+
+    function authHeaders() {
+        return initData ? { "Authorization": `tma ${initData}` } : {};
+    }
+
+    async function api(path, options = {}) {
+        const headers = {
+            "Content-Type": "application/json",
+            ...authHeaders(),
+            ...(options.headers || {})
+        };
+        const response = await fetch(path, { ...options, headers });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(data.error || "Помилка запиту");
+        }
+
+        return data;
+    }
+
+    function showMessage(text, type = "info") {
+        const message = document.getElementById("booking_message");
+        message.textContent = text;
+        message.className = `booking-message ${type}`;
+    }
+
+    function updateBookButton() {
+        const button = document.getElementById("book_button");
+        button.disabled = state.loading || !state.serviceId || !state.bookingDate || !state.bookingTime;
+        button.textContent = state.loading ? "Створюємо бронювання..." : "Підтвердити бронювання";
+        updateSummary();
+        updateSteps();
+    }
+
+    function updateSummary() {
+        document.getElementById("summary_service").textContent = state.serviceName || "Послугу не вибрано";
+        document.getElementById("summary_date").textContent = state.bookingDate || "-";
+        document.getElementById("summary_time").textContent = state.bookingTime || "-";
+    }
+
+    function updateSteps() {
+        const steps = document.querySelectorAll(".step");
+        steps.forEach(step => step.classList.remove("active", "done"));
+
+        if (state.serviceId) {
+            document.querySelector('[data-step="service"]').classList.add("done");
+            document.querySelector('[data-step="date"]').classList.add("active");
+        } else {
+            document.querySelector('[data-step="service"]').classList.add("active");
+            return;
+        }
+
+        if (state.bookingDate) {
+            document.querySelector('[data-step="date"]').classList.add("done");
+            document.querySelector('[data-step="time"]').classList.add("active");
+        }
+
+        if (state.bookingTime) {
+            document.querySelector('[data-step="time"]').classList.add("done");
+            document.querySelector('[data-step="confirm"]').classList.add("active");
+        }
+    }
 
     function set_services() {
-        const services = document.getElementById('propose');
+        const services_container = document.getElementById('propose');
 
-        services.innerHTML = "";
+        services_container.innerHTML = "";
 
-        all_services.forEach(element => {
+        if (state.services.length === 0) {
+            services_container.innerHTML = '<p class="state">Послуги поки недоступні.</p>';
+            return;
+        }
+
+        state.services.forEach(element => {
             const card = document.createElement('div');
             card.classList.add("card");
+            card.tabIndex = 0;
+            card.dataset.serviceId = element.id;
 
             const img = document.createElement('img');
-            img.src = element['img'];
-            img.alt = element['name'];
+            img.src = element.image_url || "/static/img/vodogray.png";
+            img.alt = element.name;
 
             const name = document.createElement('h2');
-            name.textContent = element['name'];
+            name.textContent = element.name;
 
             const price = document.createElement('p');
-            price.textContent = element['price'];
+            price.textContent = element.price;
+
+            const meta = document.createElement('span');
+            meta.textContent = `${element.duration_minutes || 60} хв`;
 
             card.appendChild(img);
             card.appendChild(name);
             card.appendChild(price);
+            card.appendChild(meta);
 
-            services.appendChild(card);
+            card.onclick = function () {
+                selectService(element.id);
+            };
+            card.onkeydown = function (event) {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    selectService(element.id);
+                }
+            };
+
+            services_container.appendChild(card);
         });
     }
 
-    function set_dates() {
-        const date_container = document.getElementById('dates_catalog');
+    async function selectService(serviceId) {
+        state.serviceId = serviceId;
+        state.bookingDate = null;
+        state.bookingTime = null;
+        const selectedService = state.services.find(service => service.id === serviceId);
+        state.serviceName = selectedService ? selectedService.name : "";
 
-        free_time.forEach(element => {
-            const date = new Date(element['date']);
+        document.querySelectorAll("#propose .card").forEach(card => {
+            card.classList.toggle("active", Number(card.dataset.serviceId) === serviceId);
+        });
+
+        document.getElementById("dates_catalog").innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div>';
+        document.getElementById("times_catalog").innerHTML = '<p class="state">Оберіть дату</p>';
+        updateBookButton();
+
+        try {
+            showMessage("", "info");
+            const data = await api(`/api/booking/availability?service_id=${serviceId}`);
+            set_dates(data.availability);
+        } catch (error) {
+            document.getElementById("dates_catalog").innerHTML = '<div class="empty-state"><h3>Не вдалося завантажити дати</h3><p>Перевірте зʼєднання або спробуйте ще раз.</p><button class="secondary" type="button" id="retry_dates">Спробувати ще раз</button></div>';
+            document.getElementById("retry_dates").onclick = function () {
+                selectService(serviceId);
+            };
+            showMessage(error.message, "error");
+        }
+    }
+
+    function set_dates(availability) {
+        const date_container = document.getElementById('dates_catalog');
+        date_container.innerHTML = "";
+
+        const availableDates = availability.filter(element => element.slots.length > 0);
+
+        if (availableDates.length === 0) {
+            date_container.innerHTML = '<p class="state">Немає доступних дат.</p>';
+            return;
+        }
+
+        availableDates.forEach(element => {
+            const date = new Date(`${element.date}T00:00:00`);
 
             const card = document.createElement('div');
             card.classList.add('date');
-            card.dataset.date = date;
+            card.dataset.date = element.date;
 
             const day = document.createElement('p');
-            day.textContent = date.toLocaleDateString('default', { weekday: 'short' });
+            day.textContent = date.toLocaleDateString('uk-UA', { weekday: 'short' });
 
             const day_number = document.createElement('h1');
             day_number.textContent = date.getDate();
 
+            const slots = document.createElement('span');
+            slots.textContent = `${element.slots.length} слотів`;
+
             card.appendChild(day);
             card.appendChild(day_number);
-
-            const dateelement = element;
+            card.appendChild(slots);
 
             card.onclick = function () {
                 const dates = date_container.querySelectorAll('.date');
                 dates.forEach(element => {
                     element.classList.remove('active');
-
-                    const clicked_date = new Date(dateelement['date']);
-                    const element_date = element.dataset.date;
-                    
-                    if (clicked_date == element_date) {
-                        set_times(dateelement);
-                    }
                 });
                 card.classList.add('active');
+                state.bookingDate = element.date;
+                state.bookingTime = null;
+                set_times(element.slots);
+                updateBookButton();
             }
 
             date_container.appendChild(card);
         });
+
+        date_container.querySelector('.date').click();
     }
 
-    function set_times(date) {
+    function set_times(slots) {
         const time_container = document.getElementById('times_catalog');
 
         time_container.innerHTML = "";
 
-        date['time'].forEach(element => {
+        if (slots.length === 0) {
+            time_container.innerHTML = '<p class="state">На цю дату немає вільного часу.</p>';
+            return;
+        }
+
+        slots.forEach(element => {
             const card = document.createElement('p');
             card.textContent = element
+            card.tabIndex = 0;
 
             card.onclick = function() {
                 const cards = time_container.querySelectorAll('p');
@@ -135,19 +351,123 @@
                 });
 
                 card.classList.add('active');
+                state.bookingTime = element;
+                updateBookButton();
+            }
+
+            card.onkeydown = function(event) {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    card.click();
+                }
             }
 
             time_container.appendChild(card);
         });
     }
 
+    async function loadServices() {
+        try {
+            const data = await api('/api/services');
+            state.services = data.services;
+            set_services();
+
+            if (state.services.length > 0) {
+                selectService(state.services[0].id);
+            }
+        } catch (error) {
+            document.getElementById('propose').innerHTML = '<div class="empty-state"><h3>Не вдалося завантажити послуги</h3><p>Сервіс тимчасово недоступний або база не підключена.</p><button class="secondary" type="button" id="retry_services">Спробувати ще раз</button></div>';
+            document.getElementById("retry_services").onclick = loadServices;
+            showMessage(error.message, "error");
+        }
+    }
+
+    async function loadBookings() {
+        try {
+            const data = await api('/api/bookings');
+            const container = document.getElementById('bookings_catalog');
+            container.innerHTML = "";
+
+            if (data.bookings.length === 0) {
+                container.innerHTML = '<div class="empty-state"><h3>Бронювань ще немає</h3><p>Оберіть послугу, дату й час, щоб створити перший запис.</p><a class="btn btn-secondary" href="#propose">Забронювати</a></div>';
+                return;
+            }
+
+            data.bookings.forEach(booking => {
+                const card = document.createElement("div");
+                card.classList.add("booking-card");
+
+                const title = document.createElement("h3");
+                title.textContent = booking.service_name;
+
+                const details = document.createElement("p");
+                details.textContent = `${booking.booking_date} о ${booking.booking_time} · ${booking.status}`;
+
+                const cancel = document.createElement("button");
+                cancel.type = "button";
+                cancel.textContent = "Скасувати";
+                cancel.disabled = !["pending", "confirmed"].includes(booking.status);
+                cancel.onclick = async function () {
+                    try {
+                        await api(`/api/bookings/${booking.id}/cancel`, { method: "PATCH" });
+                        showMessage("Бронювання скасовано.", "success");
+                        loadBookings();
+                        if (state.serviceId) {
+                            selectService(state.serviceId);
+                        }
+                    } catch (error) {
+                        showMessage(error.message, "error");
+                    }
+                };
+
+                card.appendChild(title);
+                card.appendChild(details);
+                card.appendChild(cancel);
+                container.appendChild(card);
+            });
+        } catch (error) {
+            document.getElementById('bookings_catalog').innerHTML = '<p class="state">Відкрийте сторінку через Telegram, щоб побачити бронювання.</p>';
+        }
+    }
+
+    async function createBooking() {
+        if (!initData) {
+            showMessage("Для бронювання відкрийте додаток через Telegram.", "error");
+            return;
+        }
+
+        state.loading = true;
+        updateBookButton();
+
+        try {
+            const comment = document.getElementById("comment").value.trim();
+            await api('/api/bookings', {
+                method: "POST",
+                body: JSON.stringify({
+                    initData,
+                    service_id: state.serviceId,
+                    booking_date: state.bookingDate,
+                    booking_time: state.bookingTime,
+                    comment
+                })
+            });
+            showMessage("Готово! Бронювання створено та очікує підтвердження.", "success");
+            document.getElementById("comment").value = "";
+            await loadBookings();
+            await selectService(state.serviceId);
+        } catch (error) {
+            showMessage(error.message, "error");
+        } finally {
+            state.loading = false;
+            updateBookButton();
+        }
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
-        set_services();
-        set_dates();
-
-        const dates = document.querySelectorAll('#dates_catalog .date');
-
-        dates[0].click();
+        document.getElementById("book_button").onclick = createBooking;
+        loadServices();
+        loadBookings();
+        updateBookButton();
     });
 </script>
 {% endblock %}

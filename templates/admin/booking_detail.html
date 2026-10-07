@@ -1,0 +1,49 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Booking #{{ booking.id }}{% endblock %}
+{% block title %}Booking details{% endblock %}
+
+{% block content %}
+<div class="admin-grid two">
+    <section class="admin-panel detail-list">
+        <div class="panel-head">
+            <h2>Бронювання</h2>
+            <span class="status-badge {{ booking.status }}">{{ booking.status }}</span>
+        </div>
+        <dl>
+            <div><dt>Дата</dt><dd>{{ booking.booking_date }}</dd></div>
+            <div><dt>Час</dt><dd>{{ booking.booking_time }}</dd></div>
+            <div><dt>Послуга</dt><dd>{{ booking.service_name }}</dd></div>
+            <div><dt>Створено</dt><dd>{{ booking.created_at }}</dd></div>
+            <div><dt>Оновлено</dt><dd>{{ booking.updated_at }}</dd></div>
+            <div class="full"><dt>Коментар</dt><dd>{{ booking.comment or 'Без коментаря' }}</dd></div>
+        </dl>
+
+        <form method="post" action="{{ url_for('admin_booking_update_status', booking_id=booking.id) }}" class="status-form">
+            <label>
+                <span>Статус</span>
+                <select name="status">
+                    {% for status in statuses %}
+                    <option value="{{ status }}" {{ 'selected' if booking.status == status else '' }}>{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button type="submit" class="admin-primary">Оновити статус</button>
+        </form>
+    </section>
+
+    <section class="admin-panel detail-list">
+        <div class="panel-head">
+            <h2>Клієнт</h2>
+            <a href="{{ url_for('admin_client_detail', client_id=booking.client_id) }}">Відкрити профіль</a>
+        </div>
+        <dl>
+            <div><dt>Імʼя</dt><dd>{{ booking.client_name }}</dd></div>
+            <div><dt>Telegram</dt><dd>{{ '@' ~ booking.username if booking.username else 'Немає username' }}</dd></div>
+            <div><dt>Telegram ID</dt><dd>{{ booking.telegram_user_id }}</dd></div>
+            <div><dt>Телефон</dt><dd>{{ booking.phone or '-' }}</dd></div>
+            <div><dt>Email</dt><dd>{{ booking.email or '-' }}</dd></div>
+        </dl>
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreeWinds Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="admin-body">
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">
+                <span>FW</span>
+                <div>
+                    <strong>FreeWinds</strong>
+                    <small>Admin panel</small>
+                </div>
+            </a>
+
+            <nav class="admin-nav" aria-label="Admin navigation">
+                <a class="{{ 'active' if request.endpoint == 'admin_dashboard' else '' }}" href="{{ url_for('admin_dashboard') }}">Dashboard</a>
+                <a class="{{ 'active' if request.endpoint in ['admin_bookings', 'admin_booking_detail'] else '' }}" href="{{ url_for('admin_bookings') }}">Bookings</a>
+                <a class="{{ 'active' if request.endpoint in ['admin_menu', 'admin_menu_new', 'admin_menu_edit'] else '' }}" href="{{ url_for('admin_menu') }}">Menu</a>
+                <a class="{{ 'active' if request.endpoint == 'admin_categories' else '' }}" href="{{ url_for('admin_categories') }}">Categories</a>
+                <a class="{{ 'active' if request.endpoint in ['admin_clients', 'admin_client_detail'] else '' }}" href="{{ url_for('admin_clients') }}">Clients</a>
+                <a class="{{ 'active' if request.endpoint == 'admin_settings' else '' }}" href="{{ url_for('admin_settings') }}">Settings</a>
+            </nav>
+
+            <form action="{{ url_for('admin_logout') }}" method="post" class="admin-logout">
+                <button type="submit">Logout</button>
+            </form>
+        </aside>
+
+        <section class="admin-main">
+            <header class="admin-topbar">
+                <div>
+                    <p class="eyebrow">{% block eyebrow %}Admin{% endblock %}</p>
+                    <h1>{% block title %}Dashboard{% endblock %}</h1>
+                </div>
+                <div class="admin-user">
+                    <span>{{ g.admin.name if g.admin else 'Admin' }}</span>
+                    <small>{{ g.admin.role if g.admin else '' }}</small>
+                </div>
+            </header>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-stack" aria-live="polite">
+                        {% for category, message in messages %}
+                            <div class="flash {{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </section>
+    </div>
+</body>
+</html>

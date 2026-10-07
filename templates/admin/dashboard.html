@@ -1,0 +1,58 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Overview{% endblock %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="metric-grid">
+    <article class="metric-card">
+        <span>Today bookings</span>
+        <strong>{{ summary.today_bookings }}</strong>
+    </article>
+    <article class="metric-card">
+        <span>Upcoming</span>
+        <strong>{{ summary.upcoming_bookings }}</strong>
+    </article>
+    <article class="metric-card">
+        <span>Clients</span>
+        <strong>{{ summary.clients_count }}</strong>
+    </article>
+    <article class="metric-card">
+        <span>Menu items</span>
+        <strong>{{ summary.menu_items_count }}</strong>
+    </article>
+    <article class="metric-card warning">
+        <span>Pending</span>
+        <strong>{{ summary.pending_bookings }}</strong>
+    </article>
+</div>
+
+<div class="admin-grid two">
+    <section class="admin-panel">
+        <div class="panel-head">
+            <h2>Сьогодні</h2>
+            <a href="{{ url_for('admin_bookings', period='today') }}">Усі</a>
+        </div>
+        {% set bookings = today_bookings %}
+        {% include "admin/partials/booking_table.html" with context %}
+    </section>
+
+    <section class="admin-panel">
+        <div class="panel-head">
+            <h2>Останні бронювання</h2>
+            <a href="{{ url_for('admin_bookings', period='all') }}">Усі</a>
+        </div>
+        {% set bookings = recent_bookings %}
+        {% include "admin/partials/booking_table.html" with context %}
+    </section>
+</div>
+
+<section class="admin-panel">
+    <div class="panel-head">
+        <h2>Найближчі бронювання</h2>
+        <a href="{{ url_for('admin_bookings') }}">Керувати</a>
+    </div>
+    {% set bookings = upcoming_bookings %}
+    {% include "admin/partials/booking_table.html" with context %}
+</section>
+{% endblock %}

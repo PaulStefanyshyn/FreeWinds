@@ -1,0 +1,59 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Audience{% endblock %}
+{% block title %}Clients{% endblock %}
+
+{% block content %}
+<section class="admin-panel">
+    <form class="filter-bar" method="get">
+        <label class="wide">
+            <span>Search</span>
+            <input name="q" value="{{ search }}" placeholder="Name, username, Telegram ID, phone, email">
+        </label>
+        <button type="submit" class="admin-primary">Search</button>
+    </form>
+
+    {% if clients %}
+    <div class="table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Client</th>
+                    <th>Telegram</th>
+                    <th>Contact</th>
+                    <th>Bookings</th>
+                    <th>Last seen</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in clients %}
+                <tr>
+                    <td>
+                        <strong>{{ client.display_name }}</strong>
+                        <small>ID {{ client.id }}</small>
+                    </td>
+                    <td>
+                        <strong>{{ '@' ~ client.username if client.username else 'No username' }}</strong>
+                        <small>{{ client.telegram_user_id }}</small>
+                    </td>
+                    <td>
+                        <strong>{{ client.phone or '-' }}</strong>
+                        <small>{{ client.email or '-' }}</small>
+                    </td>
+                    <td>
+                        <strong>{{ client.bookings_count }}</strong>
+                        <small>{{ client.upcoming_count }} upcoming</small>
+                    </td>
+                    <td>{{ client.last_seen or '-' }}</td>
+                    <td><a class="table-action" href="{{ url_for('admin_client_detail', client_id=client.id) }}">Open</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="admin-empty">Клієнтів не знайдено.</div>
+    {% endif %}
+</section>
+{% endblock %}

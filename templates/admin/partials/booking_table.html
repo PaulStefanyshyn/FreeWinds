@@ -1,0 +1,36 @@
+{% if bookings %}
+<div class="table-wrap">
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Дата</th>
+                <th>Клієнт</th>
+                <th>Послуга</th>
+                <th>Статус</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for booking in bookings %}
+            <tr>
+                <td>#{{ booking.id }}</td>
+                <td>
+                    <strong>{{ booking.booking_date }}</strong>
+                    <small>{{ booking.booking_time }}</small>
+                </td>
+                <td>
+                    <strong>{{ booking.client_name }}</strong>
+                    <small>{{ '@' ~ booking.username if booking.username else booking.phone or 'No contact' }}</small>
+                </td>
+                <td>{{ booking.service_name }}</td>
+                <td><span class="status-badge {{ booking.status }}">{{ booking.status }}</span></td>
+                <td><a class="table-action" href="{{ url_for('admin_booking_detail', booking_id=booking.id) }}">Open</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="admin-empty">Немає бронювань для цього зрізу.</div>
+{% endif %}
