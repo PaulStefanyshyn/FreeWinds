@@ -88,6 +88,14 @@
     gap: 12px;
 }
 
+.booking-actions.centered {
+    justify-content: center;
+}
+
+.booking-actions.centered form {
+    display: inline-flex;
+}
+
 .booking-form .booking-actions {
     margin-top: 18px;
 }

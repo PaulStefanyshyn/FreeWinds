@@ -203,7 +203,7 @@ def validate_room_booking_payload(data, room_id):
     guest_name = ' '.join(
         part for part in [user.get('first_name'), user.get('last_name')]
         if part
-    ).strip() or user.get('username') or ''
+    ).strip() or user.get('username') or (data.get('guest_name') or '').strip() or 'Клієнт'
     payload = {
         'room_id': room_id,
         'guest_name': guest_name,
@@ -216,10 +216,6 @@ def validate_room_booking_payload(data, room_id):
         'comment': (data.get('comment') or '').strip(),
         'telegram_user_id': user.get('id'),
     }
-    if not payload['guest_name']:
-        raise ValueError('Не вдалося отримати імʼя з Telegram. Відкрийте бронювання через бота.')
-    if not payload['telegram_user_id']:
-        raise ValueError('Не вдалося підтвердити Telegram-користувача. Відкрийте бронювання через бота.')
     if not payload['check_in'] or not payload['check_out']:
         raise ValueError('Оберіть дату заїзду та виїзду на сторінці номерів')
     return payload
@@ -430,8 +426,14 @@ def room_booking_start(room_id):
         try:
             telegram_user = verify_telegram_init_data(request.form.get('initData'))
             if not telegram_user:
-                raise ValueError('Для бронювання відкрийте сторінку через Telegram-бота.')
+                telegram_user = {
+                    'id': request.form.get('telegram_user_id') or None,
+                    'first_name': request.form.get('telegram_first_name') or None,
+                    'last_name': request.form.get('telegram_last_name') or None,
+                    'username': request.form.get('telegram_username') or None,
+                }
             form['telegram_user'] = telegram_user
+            form['guest_name'] = request.form.get('guest_name')
             payload = validate_room_booking_payload(form, room_id)
             preview = calculate_booking_preview(room, payload)
             session['pending_room_booking'] = payload

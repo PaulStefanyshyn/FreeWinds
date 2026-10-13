@@ -24,7 +24,16 @@
 
     <form method="post" class="booking-form">
         <input type="hidden" name="initData" id="telegram_init_data">
+        <input type="hidden" name="telegram_user_id" id="telegram_user_id">
+        <input type="hidden" name="telegram_first_name" id="telegram_first_name">
+        <input type="hidden" name="telegram_last_name" id="telegram_last_name">
+        <input type="hidden" name="telegram_username" id="telegram_username">
+        <input type="hidden" name="guest_name" id="guest_name" value="Клієнт">
         <div class="form-grid">
+            <div class="readonly-field">
+                <span>Клієнт</span>
+                <strong id="telegram_user_label">Буде взято з Telegram</strong>
+            </div>
             <label>
                 <span>Телефон</span>
                 <input name="guest_phone" value="{{ form.guest_phone }}" placeholder="+380..." required>
@@ -69,6 +78,18 @@
             telegram.ready();
             telegram.expand();
             document.getElementById("telegram_init_data").value = telegram.initData || "";
+            const user = telegram.initDataUnsafe && telegram.initDataUnsafe.user ? telegram.initDataUnsafe.user : null;
+            if (user) {
+                const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username || "Клієнт";
+                document.getElementById("telegram_user_id").value = user.id || "";
+                document.getElementById("telegram_first_name").value = user.first_name || "";
+                document.getElementById("telegram_last_name").value = user.last_name || "";
+                document.getElementById("telegram_username").value = user.username || "";
+                document.getElementById("guest_name").value = fullName;
+                document.getElementById("telegram_user_label").textContent = fullName;
+            }
+        } else {
+            document.getElementById("telegram_user_label").textContent = "Клієнт";
         }
     });
 </script>

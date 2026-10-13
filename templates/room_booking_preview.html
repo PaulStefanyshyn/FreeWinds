@@ -31,7 +31,7 @@
         </dl>
     </div>
 
-    <div class="booking-actions">
+    <div class="booking-actions centered">
         <form method="post" action="{{ url_for('room_booking_confirm') }}">
             <input type="hidden" name="submit_token" value="{{ submit_token }}">
             <button type="submit" class="btn btn-primary">Підтвердити та забронювати</button>
