@@ -73,14 +73,14 @@
             roomBookings.forEach((booking) => {
                 appendBooking(
                     `${booking.room_name || "Номер"} #${booking.id}`,
-                    `${booking.check_in} ${toKyivTime(booking.check_in_time) || ""} - ${booking.check_out} ${toKyivTime(booking.check_out_time) || ""}\nСтатус: ${booking.status_label}\nСтворено: ${booking.created_at || "-"}`
+                    `${booking.check_in} ${booking.check_in_time || ""} - ${booking.check_out} ${booking.check_out_time || ""}\nСтатус: ${booking.status_label}\nСтворено: ${toKyivTime(booking.created_at) || "-"}`
                 );
             });
 
             serviceBookings.forEach((booking) => {
                 appendBooking(
                     `${booking.service_name || "Послуга"} #${booking.id}`,
-                    `${booking.booking_date} ${toKyivTime(booking.booking_time)}\nСтатус: ${booking.status}\nСтворено: ${toKyivTime(booking.created_at) || "-"}`
+                    `${booking.booking_date} ${booking.booking_time}\nСтатус: ${booking.status}\nСтворено: ${toKyivTime(booking.created_at) || "-"}`
                 );
             });
         } catch (error) {
@@ -88,26 +88,23 @@
         }
     });
 
-    function toKyivTime(value, sourceTimezone = "UTC") {
-        const [hours, minutes, seconds = 0] = value.split(":").map(Number);
+    function toKyivTime(value) {
+        if (!value) return "";
+        const date = value instanceof Date ? value : new Date(value);
 
-        if (
-            !Number.isInteger(hours) || hours < 0 || hours > 23 ||
-            !Number.isInteger(minutes) || minutes < 0 || minutes > 59
-        ) {
-            throw new Error("Invalid time format: " + value);
+        if (Number.isNaN(date.getTime())) {
+            throw new Error("Invalid date format: " + value);
         }
 
-        const date = new Date(Date.UTC(2026, 0, 15, hours, minutes));
-
-        const formatted = new Intl.DateTimeFormat("en-GB", {
+        return new Intl.DateTimeFormat("uk-UA", {
             timeZone: "Europe/Kyiv",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
             hour: "2-digit",
             minute: "2-digit",
             hourCycle: "h23"
         }).format(date);
-
-        return formatted;
     }
 
 </script>
