@@ -11,8 +11,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body class="admin-body">
+    <button class="admin-menu-toggle" id="admin_menu_toggle" type="button" aria-label="Відкрити меню" aria-expanded="false" aria-controls="admin_sidebar">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+    <div class="admin-sidebar-backdrop" id="admin_sidebar_backdrop"></div>
     <div class="admin-shell">
-        <aside class="admin-sidebar">
+        <aside class="admin-sidebar" id="admin_sidebar">
             <a class="admin-brand" href="{{ url_for('admin_dashboard') }}">
                 <span>FW</span>
                 <div>
@@ -63,5 +69,30 @@
             {% block content %}{% endblock %}
         </section>
     </div>
+    <script>
+        const adminMenuToggle = document.getElementById("admin_menu_toggle");
+        const adminSidebar = document.getElementById("admin_sidebar");
+        const adminBackdrop = document.getElementById("admin_sidebar_backdrop");
+        const adminLinks = adminSidebar.querySelectorAll("a");
+
+        function setAdminMenu(open) {
+            adminSidebar.classList.toggle("open", open);
+            adminBackdrop.classList.toggle("open", open);
+            adminMenuToggle.classList.toggle("open", open);
+            adminMenuToggle.setAttribute("aria-expanded", open ? "true" : "false");
+            document.body.classList.toggle("admin-menu-open", open);
+        }
+
+        adminMenuToggle.addEventListener("click", () => {
+            setAdminMenu(!adminSidebar.classList.contains("open"));
+        });
+        adminBackdrop.addEventListener("click", () => setAdminMenu(false));
+        adminLinks.forEach(link => link.addEventListener("click", () => setAdminMenu(false)));
+        document.addEventListener("keydown", event => {
+            if (event.key === "Escape") {
+                setAdminMenu(false);
+            }
+        });
+    </script>
 </body>
 </html>
