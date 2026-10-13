@@ -1,0 +1,58 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Бронювання номера #{{ booking.id }}{% endblock %}
+{% block title %}Заявка на проживання{% endblock %}
+
+{% block content %}
+<div class="admin-grid two">
+    <section class="admin-panel detail-list">
+        <div class="panel-head">
+            <h2>Дані заявки</h2>
+            <span class="status-badge {{ booking.status }}">{{ booking.status_label }}</span>
+        </div>
+        <dl>
+            <div><dt>Номер</dt><dd>{{ booking.room_name }}</dd></div>
+            <div><dt>Створено</dt><dd>{{ booking.created_at }}</dd></div>
+            <div><dt>Заїзд</dt><dd>{{ booking.check_in }} {{ booking.check_in_time or '' }}</dd></div>
+            <div><dt>Виїзд</dt><dd>{{ booking.check_out }} {{ booking.check_out_time or '' }}</dd></div>
+            <div><dt>Клієнт</dt><dd>{{ booking.guest_name or '-' }}</dd></div>
+            <div><dt>Телефон</dt><dd>{{ booking.guest_phone or '-' }}</dd></div>
+            <div><dt>Email</dt><dd>{{ booking.guest_email or '-' }}</dd></div>
+            <div><dt>Telegram</dt><dd>{{ 'Привʼязано' if booking.telegram_linked else 'Не привʼязано' }}</dd></div>
+            <div class="full"><dt>Коментар</dt><dd>{{ booking.comment or 'Без коментаря' }}</dd></div>
+        </dl>
+    </section>
+
+    <section class="admin-panel">
+        <div class="panel-head">
+            <h2>Дії адміністратора</h2>
+        </div>
+        <div class="status-actions">
+            {% if booking.status == 'pending' %}
+            <form method="post" action="{{ url_for('admin_room_booking_update_status', booking_id=booking.id) }}">
+                <input type="hidden" name="status" value="confirmed">
+                <button type="submit" class="admin-primary">Підтвердити</button>
+            </form>
+            <form method="post" action="{{ url_for('admin_room_booking_update_status', booking_id=booking.id) }}" onsubmit="return confirm('Скасувати цю заявку?');">
+                <input type="hidden" name="status" value="cancelled">
+                <button type="submit" class="danger-link">Скасувати</button>
+            </form>
+            {% elif booking.status == 'confirmed' %}
+            <form method="post" action="{{ url_for('admin_room_booking_update_status', booking_id=booking.id) }}" onsubmit="return confirm('Скасувати підтверджене бронювання?');">
+                <input type="hidden" name="status" value="cancelled">
+                <button type="submit" class="danger-link">Скасувати бронювання</button>
+            </form>
+            {% else %}
+            <div class="admin-empty">Для цього статусу швидких дій немає.</div>
+            {% endif %}
+            {% if booking.status in ['confirmed', 'cancelled'] and booking.telegram_linked %}
+            <form method="post" action="{{ url_for('admin_room_booking_notify_client', booking_id=booking.id) }}">
+                <button type="submit" class="admin-secondary">Повторити Telegram-сповіщення</button>
+            </form>
+            {% endif %}
+            <a class="admin-secondary" href="{{ url_for('admin_room_booking_edit', booking_id=booking.id) }}">Редагувати заявку</a>
+        </div>
+        <p class="muted">Telegram-сповіщення клієнту надсилається тільки якщо заявка привʼязана до Telegram.</p>
+    </section>
+</div>
+{% endblock %}

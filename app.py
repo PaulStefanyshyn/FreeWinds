@@ -2,6 +2,8 @@ import hashlib
 import hmac
 import json
 import os
+import re
+import secrets
 import time
 import uuid
 from functools import wraps
@@ -21,7 +23,7 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from config import ADMIN_NAME, ADMIN_PASSWORD, ADMIN_USERNAME, SECRET_KEY, TELEGRAM_BOT_TOKEN
+from config import ADMIN_NAME, ADMIN_PASSWORD, ADMIN_USERNAME, SECRET_KEY, SITE_BASE_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME
 from db import (
     BOOKING_STATUSES,
     STATUS_LABELS,
@@ -33,6 +35,7 @@ from db import (
     cancel_booking,
     create_admin_user,
     create_booking,
+    create_public_room_booking,
     delete_banner,
     delete_room,
     delete_room_photo,
@@ -63,6 +66,9 @@ from db import (
     mark_admin_login,
     save_room,
     save_room_booking,
+    link_room_booking_to_telegram,
+    mark_room_booking_admin_notified,
+    mark_room_booking_client_notified,
     set_room_primary_photo,
     set_site_setting,
     save_menu_category,
@@ -72,10 +78,15 @@ from db import (
     set_menu_item_active,
     update_booking_status,
     update_banner,
+    update_room_booking_status,
     update_room_photo_order,
     upsert_client_from_telegram,
 )
-from notifications import send_booking_notification
+from notifications import (
+    send_booking_notification,
+    send_room_booking_admin_notification,
+    send_room_booking_client_notification,
+)
 
 
 app = Flask(__name__)
@@ -167,6 +178,61 @@ def bool_from_form(name, default=False):
     if name not in request.form:
         return default
     return request.form.get(name) in ('1', 'true', 'on', 'yes')
+
+
+def normalize_phone(value):
+    phone = (value or '').strip()
+    compact = re.sub(r'[\s().-]+', '', phone)
+    if not re.fullmatch(r'\+?\d{9,15}', compact):
+        raise ValueError('Вкажіть коректний номер телефону')
+    return phone
+
+
+def validate_room_booking_payload(data, room_id):
+    payload = {
+        'room_id': room_id,
+        'guest_name': (data.get('guest_name') or '').strip(),
+        'guest_phone': normalize_phone(data.get('guest_phone')),
+        'guest_email': (data.get('guest_email') or '').strip(),
+        'check_in': data.get('check_in'),
+        'check_out': data.get('check_out'),
+        'check_in_time': data.get('check_in_time') or None,
+        'check_out_time': data.get('check_out_time') or None,
+        'comment': (data.get('comment') or '').strip(),
+    }
+    if not payload['guest_name']:
+        raise ValueError('Вкажіть імʼя та прізвище')
+    if not payload['check_in'] or not payload['check_out']:
+        raise ValueError('Оберіть дату заїзду та виїзду')
+    if payload['guest_email'] and '@' not in payload['guest_email']:
+        raise ValueError('Вкажіть коректний email або залиште поле порожнім')
+    return payload
+
+
+def calculate_booking_preview(room, payload):
+    from datetime import datetime
+
+    check_in = datetime.strptime(payload['check_in'], '%Y-%m-%d').date()
+    check_out = datetime.strptime(payload['check_out'], '%Y-%m-%d').date()
+    nights = (check_out - check_in).days
+    if nights <= 0:
+        raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
+    total = float(room['price']) * nights if room.get('price') is not None else None
+    return {**payload, 'room': room, 'nights': nights, 'total': total}
+
+
+def site_base_url():
+    return (SITE_BASE_URL or request.url_root.rstrip('/')).rstrip('/')
+
+
+def room_booking_admin_url(booking_id):
+    return f"{site_base_url()}{url_for('admin_room_booking_detail', booking_id=booking_id)}"
+
+
+def telegram_link_url(token):
+    if TELEGRAM_BOT_USERNAME:
+        return f"https://t.me/{TELEGRAM_BOT_USERNAME}?start={token}"
+    return None
 
 
 def verify_telegram_init_data(init_data):
@@ -298,6 +364,7 @@ def house(room_id=None):
             flash('Номер не знайдено або він тимчасово недоступний.', 'error')
             return redirect(url_for('rooms'))
         data = {
+            'id': room['id'],
             'start_date': request.args.get('check_in') or DEFAULT_HOUSE_DATA['start_date'],
             'end_date': request.args.get('check_out') or DEFAULT_HOUSE_DATA['end_date'],
             'name': room['name'],
@@ -316,6 +383,110 @@ def house(room_id=None):
     return render_template(
         'house.html',
         data=data
+    )
+
+
+@app.route('/rooms/<int:room_id>/book', methods=['GET', 'POST'])
+def room_booking_start(room_id):
+    try:
+        room = get_room(room_id, include_photos=True)
+    except (DatabaseUnavailable, Error):
+        flash('Не вдалося завантажити номер. Спробуйте пізніше.', 'error')
+        return redirect(url_for('rooms'))
+    if not room or not room['is_active']:
+        flash('Номер не знайдено або він тимчасово недоступний.', 'error')
+        return redirect(url_for('rooms'))
+
+    errors = []
+    form = {
+        'guest_name': '',
+        'guest_phone': '',
+        'guest_email': '',
+        'check_in': request.args.get('check_in') or '',
+        'check_out': request.args.get('check_out') or '',
+        'check_in_time': '',
+        'check_out_time': '',
+        'comment': '',
+    }
+    if request.method == 'POST':
+        form.update({key: request.form.get(key, '') for key in form})
+        try:
+            payload = validate_room_booking_payload(form, room_id)
+            preview = calculate_booking_preview(room, payload)
+            session['pending_room_booking'] = payload
+            session['pending_room_booking_preview'] = {
+                'room_id': room_id,
+                'nights': preview['nights'],
+                'total': preview['total'],
+            }
+            session['room_booking_submit_token'] = secrets.token_urlsafe(24)
+            return redirect(url_for('room_booking_preview'))
+        except ValueError as exc:
+            errors.append(str(exc))
+
+    return render_template('room_booking_form.html', room=room, form=form, errors=errors)
+
+
+@app.get('/rooms/booking/preview')
+def room_booking_preview():
+    payload = session.get('pending_room_booking')
+    if not payload:
+        return redirect(url_for('rooms'))
+    try:
+        room = get_room(payload['room_id'], include_photos=True)
+        preview = calculate_booking_preview(room, payload)
+    except (TypeError, ValueError, DatabaseUnavailable, Error):
+        flash('Дані бронювання застаріли. Заповніть форму ще раз.', 'error')
+        return redirect(url_for('rooms'))
+    return render_template(
+        'room_booking_preview.html',
+        preview=preview,
+        submit_token=session.get('room_booking_submit_token'),
+    )
+
+
+@app.post('/rooms/booking/confirm')
+def room_booking_confirm():
+    payload = session.get('pending_room_booking')
+    submit_token = session.get('room_booking_submit_token')
+    if not payload or not submit_token or request.form.get('submit_token') != submit_token:
+        flash('Заявка вже оброблена або сесія застаріла. Заповніть форму ще раз.', 'error')
+        return redirect(url_for('rooms'))
+
+    try:
+        room = get_room(payload['room_id'], include_photos=False)
+        calculate_booking_preview(room, payload)
+        link_token = secrets.token_urlsafe(32)
+        booking = create_public_room_booking(payload, link_token=link_token)
+        session.pop('pending_room_booking', None)
+        session.pop('pending_room_booking_preview', None)
+        session.pop('room_booking_submit_token', None)
+        if send_room_booking_admin_notification(booking, admin_url=room_booking_admin_url(booking['id'])):
+            mark_room_booking_admin_notified(booking['id'])
+        session['last_room_booking_id'] = booking['id']
+        return redirect(url_for('room_booking_success', booking_id=booking['id']))
+    except IntegrityError:
+        flash('На жаль, номер вже зайнятий на вибрані дати. Оберіть інший період.', 'error')
+        return redirect(url_for('room_booking_start', room_id=payload.get('room_id')))
+    except (ValueError, LookupError) as exc:
+        flash(str(exc), 'error')
+        return redirect(url_for('room_booking_start', room_id=payload.get('room_id')))
+    except (DatabaseUnavailable, Error):
+        flash('Не вдалося створити бронювання. Спробуйте ще раз пізніше.', 'error')
+        return redirect(url_for('room_booking_start', room_id=payload.get('room_id')))
+
+
+@app.get('/rooms/booking/success/<int:booking_id>')
+def room_booking_success(booking_id):
+    if session.get('last_room_booking_id') != booking_id:
+        return redirect(url_for('rooms'))
+    booking = get_room_booking(booking_id)
+    if not booking:
+        return redirect(url_for('rooms'))
+    return render_template(
+        'room_booking_success.html',
+        booking=booking,
+        telegram_link=telegram_link_url(booking.get('telegram_link_token')),
     )
 
 
@@ -780,6 +951,20 @@ def admin_room_bookings():
     )
 
 
+@app.get('/admin/room-bookings/<int:booking_id>')
+@admin_required
+def admin_room_booking_detail(booking_id):
+    booking = get_room_booking(booking_id)
+    if not booking:
+        flash('Бронювання номера не знайдено.', 'error')
+        return redirect(url_for('admin_room_bookings'))
+    return render_template(
+        'admin/room_booking_detail.html',
+        booking=booking,
+        status_labels=STATUS_LABELS,
+    )
+
+
 @app.route('/admin/room-bookings/new', methods=['GET', 'POST'])
 @admin_required
 def admin_room_booking_new():
@@ -790,6 +975,64 @@ def admin_room_booking_new():
 @admin_required
 def admin_room_booking_edit(booking_id):
     return handle_room_booking_form(booking_id)
+
+
+@app.post('/admin/room-bookings/<int:booking_id>/status')
+@admin_required
+def admin_room_booking_update_status(booking_id):
+    status = request.form.get('status')
+    try:
+        booking, result = update_room_booking_status(booking_id, status)
+    except IntegrityError:
+        flash('Неможливо підтвердити: номер вже зайнятий на цей період.', 'error')
+        return redirect(url_for('admin_room_booking_detail', booking_id=booking_id))
+    except ValueError as exc:
+        flash(str(exc), 'error')
+        return redirect(url_for('admin_room_booking_detail', booking_id=booking_id))
+
+    if result == 'not_found':
+        flash('Бронювання номера не знайдено.', 'error')
+        return redirect(url_for('admin_room_bookings'))
+    if result == 'unchanged':
+        flash('Статус уже має це значення. Повторне сповіщення не надсилалось.', 'success')
+        return redirect(url_for('admin_room_booking_detail', booking_id=booking_id))
+
+    sent = False
+    if status in ('confirmed', 'cancelled') and booking.get('telegram_user_id'):
+        sent = send_room_booking_client_notification(booking, status)
+        if sent:
+            mark_room_booking_client_notified(booking['id'], status)
+    if status in ('confirmed', 'cancelled'):
+        if sent:
+            flash('Статус оновлено, Telegram-сповіщення клієнту надіслано.', 'success')
+        elif booking.get('telegram_user_id'):
+            flash('Статус оновлено, але Telegram-сповіщення не вдалося надіслати.', 'error')
+        else:
+            flash('Статус оновлено. Telegram не привʼязаний до цієї заявки.', 'success')
+    else:
+        flash('Статус бронювання оновлено.', 'success')
+    return redirect(url_for('admin_room_booking_detail', booking_id=booking_id))
+
+
+@app.post('/admin/room-bookings/<int:booking_id>/notify')
+@admin_required
+def admin_room_booking_notify_client(booking_id):
+    booking = get_room_booking(booking_id)
+    if not booking:
+        flash('Бронювання номера не знайдено.', 'error')
+        return redirect(url_for('admin_room_bookings'))
+    if booking['status'] not in ('confirmed', 'cancelled'):
+        flash('Сповіщення доступне тільки для підтверджених або скасованих бронювань.', 'error')
+        return redirect(url_for('admin_room_booking_detail', booking_id=booking_id))
+    if not booking.get('telegram_user_id'):
+        flash('Telegram не привʼязаний до цієї заявки.', 'error')
+        return redirect(url_for('admin_room_booking_detail', booking_id=booking_id))
+    if send_room_booking_client_notification({**booking, 'client_notified_status': None}, booking['status']):
+        mark_room_booking_client_notified(booking['id'], booking['status'])
+        flash('Telegram-сповіщення повторно надіслано.', 'success')
+    else:
+        flash('Не вдалося надіслати Telegram-сповіщення.', 'error')
+    return redirect(url_for('admin_room_booking_detail', booking_id=booking_id))
 
 
 def handle_room_booking_form(booking_id=None):
@@ -803,7 +1046,7 @@ def handle_room_booking_form(booking_id=None):
         try:
             saved = save_room_booking(request.form, booking_id=booking_id)
             flash('Бронювання номера збережено.', 'success')
-            return redirect(url_for('admin_room_booking_edit', booking_id=saved['id']))
+            return redirect(url_for('admin_room_booking_detail', booking_id=saved['id']))
         except ValueError as exc:
             flash(str(exc), 'error')
         except IntegrityError:

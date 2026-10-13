@@ -5,6 +5,8 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'change-me-in-production')
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_BOOKINGS_CHAT_ID = os.environ.get('TELEGRAM_BOOKINGS_CHAT_ID', '')
 WEB_APP_URL = os.environ.get('WEB_APP_URL', 'http://localhost:5000/service')
+SITE_BASE_URL = os.environ.get('SITE_BASE_URL', '')
+TELEGRAM_BOT_USERNAME = os.environ.get('TELEGRAM_BOT_USERNAME', '')
 
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', '')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', '')

@@ -449,11 +449,17 @@
 .check-grid,
 .form-actions,
 .image-preview-row,
-.status-form {
+.status-form,
+.status-actions {
     display: flex;
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
+}
+
+.status-actions {
+    align-items: stretch;
+    margin-bottom: 14px;
 }
 
 .check-row {

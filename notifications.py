@@ -82,3 +82,99 @@ def send_booking_notification(booking):
     except (OSError, URLError, json.JSONDecodeError) as exc:
         logger.warning('Telegram booking notification failed: %s', exc)
         return False
+
+
+def send_telegram_message(chat_id, text):
+    if not TELEGRAM_BOT_TOKEN or not chat_id:
+        logger.info('Telegram message skipped: token or chat id is missing')
+        return False
+
+    payload = {
+        'chat_id': chat_id,
+        'text': text,
+        'disable_web_page_preview': True,
+    }
+    data = json.dumps(payload).encode('utf-8')
+    request = Request(
+        f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage',
+        data=data,
+        headers={'Content-Type': 'application/json'},
+        method='POST',
+    )
+
+    try:
+        with urlopen(request, timeout=8) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            if not result.get('ok'):
+                logger.warning('Telegram message failed for chat %s: %s', chat_id, result.get('description'))
+                return False
+            return True
+    except (OSError, URLError, json.JSONDecodeError) as exc:
+        logger.warning('Telegram message failed for chat %s: %s', chat_id, exc)
+        return False
+
+
+def format_room_booking_admin_message(booking, admin_url=None):
+    lines = [
+        'Нова заявка на бронювання номера',
+        '',
+        _line('Клієнт', booking.get('guest_name')),
+        _line('Телефон', booking.get('guest_phone')),
+        _line('Номер', booking.get('room_name')),
+        _line('Заїзд', f"{booking.get('check_in')} {booking.get('check_in_time') or ''}".strip()),
+        _line('Виїзд', f"{booking.get('check_out')} {booking.get('check_out_time') or ''}".strip()),
+        _line('Статус', STATUS_LABELS.get(booking.get('status'), booking.get('status'))),
+    ]
+    if booking.get('comment'):
+        lines.extend(['', 'Коментар:', booking['comment']])
+    if admin_url:
+        lines.extend(['', admin_url])
+    return '\n'.join(line for line in lines if line is not None)
+
+
+def send_room_booking_admin_notification(booking, admin_url=None):
+    if not TELEGRAM_BOOKINGS_CHAT_ID:
+        logger.info('Room booking admin notification skipped: chat id is missing')
+        return False
+    return send_telegram_message(
+        TELEGRAM_BOOKINGS_CHAT_ID,
+        format_room_booking_admin_message(booking, admin_url=admin_url),
+    )
+
+
+def format_room_booking_client_message(booking, status):
+    name = booking.get('guest_name') or 'гостю'
+    check_in = f"{booking.get('check_in')} {booking.get('check_in_time') or ''}".strip()
+    check_out = f"{booking.get('check_out')} {booking.get('check_out_time') or ''}".strip()
+
+    if status == 'confirmed':
+        return (
+            f"Вітаємо, {name}!\n\n"
+            "Ваше бронювання підтверджено.\n\n"
+            f"Номер: {booking.get('room_name')}\n"
+            f"Заїзд: {check_in}\n"
+            f"Виїзд: {check_out}\n\n"
+            "Дякуємо, що обрали нас! Чекаємо на вас."
+        )
+    if status == 'cancelled':
+        return (
+            f"Добрий день, {name}.\n\n"
+            f"На жаль, ваше бронювання номера «{booking.get('room_name')}» "
+            f"на період {check_in} - {check_out} скасовано.\n\n"
+            "Перепрошуємо за незручності. Наш адміністратор зв'яжеться з вами найближчим часом, "
+            "щоб пояснити ситуацію та обговорити можливі варіанти.\n\n"
+            "Дякуємо за розуміння."
+        )
+    return ''
+
+
+def send_room_booking_client_notification(booking, status):
+    if booking.get('client_notified_status') == status:
+        return False
+    if not booking.get('telegram_user_id'):
+        logger.info('Room booking client notification skipped: booking is not linked to Telegram')
+        return False
+    text = format_room_booking_client_message(booking, status)
+    if not text:
+        return False
+    return send_telegram_message(booking['telegram_user_id'], text)

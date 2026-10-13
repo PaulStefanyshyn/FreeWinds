@@ -45,7 +45,11 @@
 
     <div id="calendar"></div>
 
-    <button id="reserve" type="button">Забронювати послугу</button>
+    {% if data.id is defined %}
+    <a id="reserve" class="reserve-link" href="{{ url_for('room_booking_start', room_id=data.id) }}">Забронювати номер</a>
+    {% else %}
+    <a id="reserve" class="reserve-link" href="/service">Забронювати послугу</a>
+    {% endif %}
 </div>
 {% endblock %}
 
@@ -323,9 +327,6 @@
             }
         });
 
-        document.getElementById("reserve").onclick = function () {
-            window.location.href = "/service";
-        };
     });
 </script>
 {% endblock %}

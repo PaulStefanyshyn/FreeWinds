@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/room_booking.css') }}">
+{% endblock %}
+
+{% block content %}
+{% include 'header.html' %}
+
+<section class="booking-page">
+    <div class="booking-card success">
+        <p class="eyebrow">Заявку прийнято</p>
+        <h1>Дякуємо за бронювання!</h1>
+        <p>Вашу заявку прийнято та передано адміністратору на розгляд. Ви отримаєте повідомлення, щойно бронювання буде підтверджено або якщо виникне потреба його скасувати.</p>
+    </div>
+
+    <div class="booking-summary-panel">
+        <dl>
+            <div><dt>Номер заявки</dt><dd>#{{ booking.id }}</dd></div>
+            <div><dt>Номер</dt><dd>{{ booking.room_name }}</dd></div>
+            <div><dt>Заїзд</dt><dd>{{ booking.check_in }} {{ booking.check_in_time or '' }}</dd></div>
+            <div><dt>Виїзд</dt><dd>{{ booking.check_out }} {{ booking.check_out_time or '' }}</dd></div>
+            <div><dt>Статус</dt><dd>{{ booking.status_label }}</dd></div>
+        </dl>
+    </div>
+
+    <div class="telegram-link-box">
+        <h2>Telegram-сповіщення</h2>
+        {% if telegram_link %}
+        <p>Щоб отримати повідомлення після підтвердження або скасування, привʼяжіть цю заявку до Telegram.</p>
+        <a class="btn btn-primary" href="{{ telegram_link }}">Привʼязати Telegram</a>
+        {% elif booking.telegram_link_token %}
+        <p>Відкрийте нашого Telegram-бота та надішліть команду:</p>
+        <code>/start {{ booking.telegram_link_token }}</code>
+        {% else %}
+        <p>Telegram уже привʼязаний або строк привʼязки завершився.</p>
+        {% endif %}
+    </div>
+
+    <div class="booking-actions">
+        <a class="btn btn-secondary" href="{{ url_for('rooms') }}">До номерів</a>
+    </div>
+</section>
+{% endblock %}

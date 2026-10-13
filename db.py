@@ -1028,6 +1028,9 @@ def delete_room(room_id):
 
 
 def serialize_room_booking(booking):
+    check_in_time = booking.get('check_in_time')
+    check_out_time = booking.get('check_out_time')
+    telegram_user_id = booking.get('telegram_user_id')
     room = {
         'id': booking['id'],
         'room_id': booking['room_id'],
@@ -1037,12 +1040,21 @@ def serialize_room_booking(booking):
         'guest_email': booking.get('guest_email'),
         'check_in': booking['check_in'].isoformat(),
         'check_out': booking['check_out'].isoformat(),
+        'check_in_time': normalize_time(check_in_time) if check_in_time else None,
+        'check_out_time': normalize_time(check_out_time) if check_out_time else None,
         'status': booking['status'],
         'status_label': STATUS_LABELS.get(booking['status'], booking['status']),
         'comment': booking.get('comment'),
+        'telegram_user_id': telegram_user_id,
+        'telegram_link_token': booking.get('telegram_link_token'),
+        'telegram_linked': bool(telegram_user_id),
+        'client_notified_status': booking.get('client_notified_status'),
+        'admin_notified_at': serialize_datetime(booking.get('admin_notified_at')),
         'created_at': serialize_datetime(booking.get('created_at')),
         'updated_at': serialize_datetime(booking.get('updated_at')),
     }
+    if booking.get('price') is not None:
+        room['room_price'] = float(booking['price'])
     return room
 
 
@@ -1058,7 +1070,7 @@ def get_room_bookings(status=None, room_id=None):
     where_clause = ' AND '.join(clauses) if clauses else '1=1'
     rows = fetch_all(
         f"""
-        SELECT rb.*, r.name AS room_name
+        SELECT rb.*, r.name AS room_name, r.price
         FROM room_bookings rb
         JOIN rooms r ON r.id = rb.room_id
         WHERE {where_clause}
@@ -1072,7 +1084,7 @@ def get_room_bookings(status=None, room_id=None):
 def get_room_booking(booking_id):
     row = fetch_one(
         """
-        SELECT rb.*, r.name AS room_name
+        SELECT rb.*, r.name AS room_name, r.price
         FROM room_bookings rb
         JOIN rooms r ON r.id = rb.room_id
         WHERE rb.id = %s
@@ -1103,6 +1115,8 @@ def save_room_booking(data, booking_id=None):
         'guest_email': (data.get('guest_email') or '').strip() or None,
         'check_in': check_in,
         'check_out': check_out,
+        'check_in_time': data.get('check_in_time') or None,
+        'check_out_time': data.get('check_out_time') or None,
         'status': status,
         'comment': (data.get('comment') or '').strip() or None,
     }
@@ -1119,6 +1133,8 @@ def save_room_booking(data, booking_id=None):
                     guest_email = %(guest_email)s,
                     check_in = %(check_in)s,
                     check_out = %(check_out)s,
+                    check_in_time = %(check_in_time)s,
+                    check_out_time = %(check_out_time)s,
                     status = %(status)s,
                     comment = %(comment)s,
                     updated_at = NOW()
@@ -1131,11 +1147,13 @@ def save_room_booking(data, booking_id=None):
                 """
                 INSERT INTO room_bookings (
                     room_id, guest_name, guest_phone, guest_email,
-                    check_in, check_out, status, comment, created_at, updated_at
+                    check_in, check_out, check_in_time, check_out_time,
+                    status, comment, created_at, updated_at
                 )
                 VALUES (
                     %(room_id)s, %(guest_name)s, %(guest_phone)s, %(guest_email)s,
-                    %(check_in)s, %(check_out)s, %(status)s, %(comment)s, NOW(), NOW()
+                    %(check_in)s, %(check_out)s, %(check_in_time)s, %(check_out_time)s,
+                    %(status)s, %(comment)s, NOW(), NOW()
                 )
                 """,
                 payload,
@@ -1143,6 +1161,179 @@ def save_room_booking(data, booking_id=None):
             booking_id = cursor.lastrowid
         connection.commit()
     return get_room_booking(booking_id)
+
+
+def create_public_room_booking(data, link_token):
+    room_id = data.get('room_id')
+    if not room_id:
+        raise ValueError('Оберіть номер')
+    check_in = datetime.strptime(data.get('check_in'), '%Y-%m-%d').date()
+    check_out = datetime.strptime(data.get('check_out'), '%Y-%m-%d').date()
+    if check_out <= check_in:
+        raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
+
+    payload = {
+        'room_id': int(room_id),
+        'guest_name': (data.get('guest_name') or '').strip(),
+        'guest_phone': (data.get('guest_phone') or '').strip(),
+        'guest_email': (data.get('guest_email') or '').strip() or None,
+        'check_in': check_in,
+        'check_out': check_out,
+        'check_in_time': data.get('check_in_time') or None,
+        'check_out_time': data.get('check_out_time') or None,
+        'comment': (data.get('comment') or '').strip() or None,
+        'telegram_link_token': link_token,
+    }
+    if not payload['guest_name']:
+        raise ValueError('Вкажіть імʼя та прізвище')
+    if not payload['guest_phone']:
+        raise ValueError('Вкажіть номер телефону')
+
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute('SELECT id FROM rooms WHERE id = %s AND is_active = TRUE FOR UPDATE', (payload['room_id'],))
+        if not cursor.fetchone():
+            raise LookupError('Номер не знайдено або він недоступний')
+        cursor.execute(
+            """
+            SELECT id
+            FROM room_bookings
+            WHERE room_id = %(room_id)s
+              AND status IN ('pending', 'confirmed')
+              AND check_in < %(check_out)s
+              AND check_out > %(check_in)s
+            LIMIT 1
+            """,
+            payload,
+        )
+        if cursor.fetchone():
+            raise IntegrityError('Номер вже зайнятий на вибрані дати')
+        cursor.execute(
+            """
+            INSERT INTO room_bookings (
+                room_id, guest_name, guest_phone, guest_email,
+                check_in, check_out, check_in_time, check_out_time,
+                status, comment, telegram_link_token, telegram_link_expires_at,
+                created_at, updated_at
+            )
+            VALUES (
+                %(room_id)s, %(guest_name)s, %(guest_phone)s, %(guest_email)s,
+                %(check_in)s, %(check_out)s, %(check_in_time)s, %(check_out_time)s,
+                'pending', %(comment)s, %(telegram_link_token)s, DATE_ADD(NOW(), INTERVAL 14 DAY),
+                NOW(), NOW()
+            )
+            """,
+            payload,
+        )
+        booking_id = cursor.lastrowid
+        connection.commit()
+    return get_room_booking(booking_id)
+
+
+def update_room_booking_status(booking_id, status):
+    if status not in BOOKING_STATUSES:
+        raise ValueError('Некоректний статус бронювання')
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT *
+            FROM room_bookings
+            WHERE id = %s
+            FOR UPDATE
+            """,
+            (booking_id,),
+        )
+        booking = cursor.fetchone()
+        if not booking:
+            connection.rollback()
+            return None, 'not_found'
+        if booking['status'] == status:
+            connection.rollback()
+            return get_room_booking(booking_id), 'unchanged'
+        if status == 'confirmed':
+            cursor.execute(
+                """
+                SELECT id
+                FROM room_bookings
+                WHERE id <> %s
+                  AND room_id = %s
+                  AND status IN ('pending', 'confirmed')
+                  AND check_in < %s
+                  AND check_out > %s
+                LIMIT 1
+                """,
+                (booking_id, booking['room_id'], booking['check_out'], booking['check_in']),
+            )
+            if cursor.fetchone():
+                connection.rollback()
+                raise IntegrityError('Номер вже зайнятий на вибрані дати')
+        cursor.execute(
+            """
+            UPDATE room_bookings
+            SET status = %s,
+                client_notified_status = CASE WHEN client_notified_status = %s THEN NULL ELSE client_notified_status END,
+                updated_at = NOW()
+            WHERE id = %s
+            """,
+            (status, status, booking_id),
+        )
+        connection.commit()
+    return get_room_booking(booking_id), 'changed'
+
+
+def mark_room_booking_client_notified(booking_id, status):
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            UPDATE room_bookings
+            SET client_notified_status = %s, client_notified_at = NOW()
+            WHERE id = %s
+            """,
+            (status, booking_id),
+        )
+        connection.commit()
+
+
+def mark_room_booking_admin_notified(booking_id):
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        cursor.execute('UPDATE room_bookings SET admin_notified_at = NOW() WHERE id = %s', (booking_id,))
+        connection.commit()
+
+
+def link_room_booking_to_telegram(link_token, telegram_user_id):
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT id
+            FROM room_bookings
+            WHERE telegram_link_token = %s
+              AND telegram_link_expires_at >= NOW()
+            LIMIT 1
+            FOR UPDATE
+            """,
+            (link_token,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            connection.rollback()
+            return None
+        cursor.execute(
+            """
+            UPDATE room_bookings
+            SET telegram_user_id = %s,
+                telegram_link_token = NULL,
+                telegram_link_expires_at = NULL,
+                updated_at = NOW()
+            WHERE id = %s
+            """,
+            (telegram_user_id, row['id']),
+        )
+        connection.commit()
+        return get_room_booking(row['id'])
 
 
 def get_site_setting(key, default=None):

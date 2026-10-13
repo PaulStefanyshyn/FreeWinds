@@ -6,7 +6,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from aiogram.client.default import DefaultBotProperties
 
 from config import TELEGRAM_BOT_TOKEN, WEB_APP_URL
-from db import DatabaseUnavailable, Error, upsert_client_from_telegram
+from db import DatabaseUnavailable, Error, link_room_booking_to_telegram, upsert_client_from_telegram
 
 if not TELEGRAM_BOT_TOKEN:
     raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured")
@@ -29,6 +29,30 @@ async def command_start(message: types.Message):
             })
         except (DatabaseUnavailable, Error) as exc:
             logging.exception("Could not sync Telegram client: %s", exc)
+
+    args = ""
+    if message.text and len(message.text.split(maxsplit=1)) > 1:
+        args = message.text.split(maxsplit=1)[1].strip()
+
+    if args and user:
+        try:
+            booking = link_room_booking_to_telegram(args, user.id)
+            if booking:
+                await message.answer(
+                    "Готово! Telegram привʼязано до вашої заявки "
+                    f"#{booking['id']} на номер «{booking['room_name']}». "
+                    "Ми повідомимо вас після підтвердження або скасування."
+                )
+                return
+            await message.answer(
+                "Не вдалося знайти активну заявку для привʼязки. "
+                "Перевірте посилання або зверніться до адміністратора."
+            )
+            return
+        except (DatabaseUnavailable, Error) as exc:
+            logging.exception("Could not link room booking to Telegram: %s", exc)
+            await message.answer("Не вдалося привʼязати заявку. Спробуйте пізніше.")
+            return
 
     web_app_btn = InlineKeyboardButton(
         text='Додаток',

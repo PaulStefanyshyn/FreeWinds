@@ -224,10 +224,15 @@
 
 #reserve {
     min-height: 56px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: white;
     background: var(--color-primary);
+    border-radius: var(--radius-md);
     font-size: 16px;
     font-weight: 900;
+    text-decoration: none;
     box-shadow: 0 12px 26px rgba(49, 95, 119, 0.2);
 }
 

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/room_booking.css') }}">
+{% endblock %}
+
+{% block content %}
+{% include 'header.html' %}
+
+<section class="booking-page">
+    <div class="booking-card">
+        <p class="eyebrow">Перевірка заявки</p>
+        <h1>Підтвердіть дані</h1>
+        <p>Бронювання ще не створене. Перевірте інформацію й натисніть кнопку підтвердження.</p>
+    </div>
+
+    <div class="booking-summary-panel">
+        <dl>
+            <div><dt>Клієнт</dt><dd>{{ preview.guest_name }}</dd></div>
+            <div><dt>Телефон</dt><dd>{{ preview.guest_phone }}</dd></div>
+            <div><dt>Номер</dt><dd>{{ preview.room.name }}</dd></div>
+            <div><dt>Заїзд</dt><dd>{{ preview.check_in }} {{ preview.check_in_time or '' }}</dd></div>
+            <div><dt>Виїзд</dt><dd>{{ preview.check_out }} {{ preview.check_out_time or '' }}</dd></div>
+            <div><dt>Ночей</dt><dd>{{ preview.nights }}</dd></div>
+            {% if preview.total is not none %}
+            <div><dt>Орієнтовна вартість</dt><dd>{{ '%.2f'|format(preview.total) }} грн</dd></div>
+            {% endif %}
+            {% if preview.comment %}
+            <div class="full"><dt>Коментар</dt><dd>{{ preview.comment }}</dd></div>
+            {% endif %}
+        </dl>
+    </div>
+
+    <div class="booking-actions">
+        <form method="post" action="{{ url_for('room_booking_confirm') }}">
+            <input type="hidden" name="submit_token" value="{{ submit_token }}">
+            <button type="submit" class="btn btn-primary">Підтвердити та забронювати</button>
+        </form>
+        <a class="btn btn-secondary" href="{{ url_for('room_booking_start', room_id=preview.room.id) }}">Повернутися та виправити дані</a>
+    </div>
+</section>
+{% endblock %}

@@ -36,6 +36,14 @@
             <input type="date" name="check_out" value="{{ booking.check_out if booking else '' }}" required>
         </label>
         <label>
+            <span>Час заїзду</span>
+            <input type="time" name="check_in_time" value="{{ booking.check_in_time if booking else '' }}">
+        </label>
+        <label>
+            <span>Час виїзду</span>
+            <input type="time" name="check_out_time" value="{{ booking.check_out_time if booking else '' }}">
+        </label>
+        <label>
             <span>Імʼя гостя</span>
             <input name="guest_name" value="{{ booking.guest_name if booking else '' }}">
         </label>

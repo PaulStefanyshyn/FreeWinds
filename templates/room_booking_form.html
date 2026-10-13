@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/room_booking.css') }}">
+{% endblock %}
+
+{% block content %}
+{% include 'header.html' %}
+
+<section class="booking-page">
+    <div class="booking-card">
+        <p class="eyebrow">Бронювання номера</p>
+        <h1>{{ room.name }}</h1>
+        <p>{{ room.description or 'Заповніть форму, і адміністратор підтвердить вашу заявку.' }}</p>
+    </div>
+
+    {% if errors %}
+    <div class="form-errors">
+        {% for error in errors %}
+        <p>{{ error }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" class="booking-form">
+        <div class="form-grid">
+            <label>
+                <span>Імʼя та прізвище</span>
+                <input name="guest_name" value="{{ form.guest_name }}" required>
+            </label>
+            <label>
+                <span>Телефон</span>
+                <input name="guest_phone" value="{{ form.guest_phone }}" placeholder="+380..." required>
+            </label>
+            <label>
+                <span>Email</span>
+                <input type="email" name="guest_email" value="{{ form.guest_email }}">
+            </label>
+            <label>
+                <span>Дата заїзду</span>
+                <input type="date" name="check_in" value="{{ form.check_in }}" required>
+            </label>
+            <label>
+                <span>Дата виїзду</span>
+                <input type="date" name="check_out" value="{{ form.check_out }}" required>
+            </label>
+            <label>
+                <span>Час заїзду</span>
+                <input type="time" name="check_in_time" value="{{ form.check_in_time }}">
+            </label>
+            <label>
+                <span>Час виїзду</span>
+                <input type="time" name="check_out_time" value="{{ form.check_out_time }}">
+            </label>
+            <label class="full">
+                <span>Коментар або побажання</span>
+                <textarea name="comment" rows="4">{{ form.comment }}</textarea>
+            </label>
+        </div>
+
+        <div class="booking-actions">
+            <button type="submit" class="btn btn-primary">Переглянути заявку</button>
+            <a class="btn btn-secondary" href="{{ url_for('house', room_id=room.id) }}">Повернутися до номера</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

@@ -50,7 +50,10 @@
                         <small>{{ booking.guest_phone or booking.guest_email or 'Без контакту' }}</small>
                     </td>
                     <td><span class="status-badge {{ booking.status }}">{{ booking.status_label }}</span></td>
-                    <td><a class="table-action" href="{{ url_for('admin_room_booking_edit', booking_id=booking.id) }}">Редагувати</a></td>
+                    <td class="table-actions">
+                        <a class="table-action" href="{{ url_for('admin_room_booking_detail', booking_id=booking.id) }}">Відкрити</a>
+                        <a class="table-action" href="{{ url_for('admin_room_booking_edit', booking_id=booking.id) }}">Редагувати</a>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
