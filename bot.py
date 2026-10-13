@@ -47,7 +47,7 @@ def main_menu_keyboard():
             ],
             [InlineKeyboardButton(text="🛎️ Мої бронювання", callback_data="bookings")],
             [InlineKeyboardButton(text="📍 Контакти й розташування", callback_data="contacts")],
-            [web_or_url_button("🌐 Відкрити сайт", get_site_url("/"))],
+            [web_or_url_button("🚀 Запустити додаток", get_site_url("/"))],
         ]
     )
 

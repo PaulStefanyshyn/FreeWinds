@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/room_booking.css') }}">
+{% endblock %}
+
+{% block content %}
+{% include 'header.html' %}
+
+<section class="booking-page">
+    <div class="booking-card">
+        <p class="eyebrow">Особистий кабінет</p>
+        <h1>Мої бронювання</h1>
+        <p id="bookings_status">Завантажуємо бронювання, привʼязані до вашого Telegram.</p>
+    </div>
+
+    <div class="booking-summary-panel" id="bookings_panel" hidden>
+        <dl id="bookings_list"></dl>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        const status = document.getElementById("bookings_status");
+        const panel = document.getElementById("bookings_panel");
+        const list = document.getElementById("bookings_list");
+        const telegram = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+        const initData = telegram ? telegram.initData : "";
+
+        if (!initData) {
+            status.textContent = "Відкрийте сайт через Telegram-бот або привʼяжіть бронювання до Telegram, щоб побачити власні заявки.";
+            return;
+        }
+
+        try {
+            const [roomResponse, serviceResponse] = await Promise.all([
+                fetch("/api/room-bookings", { headers: { Authorization: `tma ${initData}` } }),
+                fetch("/api/bookings", { headers: { Authorization: `tma ${initData}` } }),
+            ]);
+
+            if (!roomResponse.ok || !serviceResponse.ok) {
+                status.textContent = "Не вдалося підтвердити Telegram-доступ. Відкрийте сторінку з бота ще раз.";
+                return;
+            }
+
+            const roomData = await roomResponse.json();
+            const serviceData = await serviceResponse.json();
+            const roomBookings = roomData.bookings || [];
+            const serviceBookings = serviceData.bookings || [];
+
+            if (!roomBookings.length && !serviceBookings.length) {
+                status.textContent = "Поки немає бронювань, привʼязаних до вашого Telegram.";
+                return;
+            }
+
+            status.textContent = "";
+            panel.hidden = false;
+            list.innerHTML = "";
+
+            function appendBooking(title, details) {
+                const item = document.createElement("div");
+                item.className = "full";
+                const dt = document.createElement("dt");
+                const dd = document.createElement("dd");
+                dt.textContent = title;
+                dd.textContent = details;
+                item.append(dt, dd);
+                list.appendChild(item);
+            }
+
+            roomBookings.forEach((booking) => {
+                appendBooking(
+                    `${booking.room_name || "Номер"} #${booking.id}`,
+                    `${booking.check_in} ${booking.check_in_time || ""} - ${booking.check_out} ${booking.check_out_time || ""}\nСтатус: ${booking.status_label}\nСтворено: ${booking.created_at || "-"}`
+                );
+            });
+
+            serviceBookings.forEach((booking) => {
+                appendBooking(
+                    `${booking.service_name || "Послуга"} #${booking.id}`,
+                    `${booking.booking_date} ${booking.booking_time}\nСтатус: ${booking.status}\nСтворено: ${booking.created_at || "-"}`
+                );
+            });
+        } catch (error) {
+            status.textContent = "Не вдалося завантажити бронювання. Спробуйте пізніше.";
+        }
+    });
+</script>
+{% endblock %}

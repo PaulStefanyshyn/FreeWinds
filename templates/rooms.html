@@ -29,6 +29,18 @@
         {% endif %}
     </form>
 
+    {% if availability_error %}
+    <div class="empty-state compact">
+        <h3>{{ availability_error }}</h3>
+        <p>Поверніться до вибору дат і спробуйте інший період.</p>
+    </div>
+    {% elif availability_checked and not rooms %}
+    <div class="empty-state compact">
+        <h3>На вибрані дати вільних номерів немає</h3>
+        <p>Спробуйте змінити дати заїзду та виїзду.</p>
+    </div>
+    {% endif %}
+
     <div id="rooms">
         {% for room in rooms %}
         <article class="room">
@@ -51,11 +63,13 @@
             </div>
         </article>
         {% else %}
+        {% if not availability_error and not availability_checked %}
         <div class="empty-state">
             <h3>Немає доступних номерів</h3>
             <p>Спробуйте інші дати або звʼяжіться з нами для уточнення.</p>
             <a class="btn btn-primary" href="{{ url_for('contact') }}">Контакти</a>
         </div>
+        {% endif %}
         {% endfor %}
     </div>
 </div>

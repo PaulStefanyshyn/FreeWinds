@@ -51,10 +51,6 @@
             <span>Телефон</span>
             <input name="guest_phone" value="{{ booking.guest_phone if booking else '' }}">
         </label>
-        <label>
-            <span>Email</span>
-            <input type="email" name="guest_email" value="{{ booking.guest_email if booking else '' }}">
-        </label>
         <label class="full">
             <span>Коментар</span>
             <textarea name="comment" rows="4">{{ booking.comment if booking else '' }}</textarea>

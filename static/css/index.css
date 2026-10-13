@@ -1,21 +1,18 @@
 .home-banners {
     position: relative;
-    min-height: clamp(150px, 24vw, 260px);
     margin-bottom: 18px;
-    overflow: hidden;
     border: 1px solid var(--color-border);
     border-radius: var(--radius-xl);
     background: var(--color-surface);
     box-shadow: var(--shadow-sm);
 }
 
-.banner-track,
-.home-banner {
-    position: absolute;
-    inset: 0;
+.banner-track {
+    display: grid;
 }
 
 .home-banner {
+    grid-area: 1 / 1;
     opacity: 0;
     transition: opacity 0.45s ease;
 }
@@ -27,8 +24,9 @@
 
 .home-banner img {
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    height: auto;
+    display: block;
+    object-fit: contain;
 }
 
 .banner-caption {

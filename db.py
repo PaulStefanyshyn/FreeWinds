@@ -20,6 +20,8 @@ STATUS_LABELS = {
     'completed': 'Завершено',
 }
 DEFAULT_SLOTS = ('10:00', '12:00', '14:00', '16:00', '18:00', '20:00')
+ROOM_BLOCKING_STATUSES = ('pending', 'confirmed')
+ANNOUNCEMENT_STATUSES = ('draft', 'ready', 'sent')
 
 
 class DatabaseUnavailable(RuntimeError):
@@ -113,7 +115,17 @@ def serialize_booking(booking):
         'booking_time': normalize_time(booking['booking_time']),
         'status': booking['status'],
         'comment': booking.get('comment'),
+        'created_at': serialize_datetime(booking.get('created_at')),
     }
+
+
+def parse_booking_date(value, field_label='Дата'):
+    if isinstance(value, date):
+        return value
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        raise ValueError(f'{field_label} має некоректний формат')
 
 
 def serialize_datetime(value):
@@ -485,6 +497,25 @@ def get_client_room_bookings_by_telegram(telegram_user_id):
         ORDER BY rb.check_in DESC, rb.created_at DESC
         """,
         (telegram_user_id,),
+    )
+    return [serialize_room_booking(row) for row in rows]
+
+
+def get_client_room_bookings(client_id):
+    if not client_id:
+        return []
+    rows = fetch_all(
+        """
+        SELECT rb.*, r.name AS room_name, r.price
+        FROM clients c
+        JOIN room_bookings rb
+          ON (rb.client_id = c.id OR (rb.client_id IS NULL AND rb.telegram_user_id = c.telegram_user_id))
+        JOIN rooms r ON r.id = rb.room_id
+        WHERE c.id = %s
+        GROUP BY rb.id
+        ORDER BY rb.check_in DESC, rb.created_at DESC
+        """,
+        (client_id,),
     )
     return [serialize_room_booking(row) for row in rows]
 
@@ -1092,6 +1123,10 @@ def room_base_query(where_clause='1=1'):
 
 
 def room_has_overlap(room_id, check_in, check_out, exclude_booking_id=None):
+    check_in = parse_booking_date(check_in, 'Дата заїзду')
+    check_out = parse_booking_date(check_out, 'Дата виїзду')
+    if check_out <= check_in:
+        raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
     params = [room_id, check_in, check_out]
     clause = ''
     if exclude_booking_id:
@@ -1134,11 +1169,14 @@ def get_admin_rooms(search=None, include_inactive=True):
 
 def get_public_rooms(check_in=None, check_out=None):
     rooms = get_admin_rooms(include_inactive=False)
-    if check_in and check_out:
-        return [
-            room for room in rooms
-            if not room_has_overlap(room['id'], check_in, check_out)
-        ]
+    if check_in or check_out:
+        if not check_in or not check_out:
+            raise ValueError('Оберіть дату заїзду та виїзду')
+        check_in = parse_booking_date(check_in, 'Дата заїзду')
+        check_out = parse_booking_date(check_out, 'Дата виїзду')
+        if check_out <= check_in:
+            raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
+        return [room for room in rooms if not room_has_overlap(room['id'], check_in, check_out)]
     return rooms
 
 
@@ -1295,6 +1333,7 @@ def serialize_room_booking(booking):
     room = {
         'id': booking['id'],
         'room_id': booking['room_id'],
+        'client_id': booking.get('client_id'),
         'room_name': booking.get('room_name'),
         'guest_name': booking.get('guest_name'),
         'guest_phone': booking.get('guest_phone'),
@@ -1359,15 +1398,13 @@ def save_room_booking(data, booking_id=None):
     room_id = data.get('room_id')
     if not room_id:
         raise ValueError('Оберіть номер')
-    check_in = datetime.strptime(data.get('check_in'), '%Y-%m-%d').date()
-    check_out = datetime.strptime(data.get('check_out'), '%Y-%m-%d').date()
+    check_in = parse_booking_date(data.get('check_in'), 'Дата заїзду')
+    check_out = parse_booking_date(data.get('check_out'), 'Дата виїзду')
     if check_out <= check_in:
         raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
     status = data.get('status') or 'confirmed'
     if status not in BOOKING_STATUSES:
         raise ValueError('Некоректний статус бронювання')
-    if status in ('pending', 'confirmed') and room_has_overlap(room_id, check_in, check_out, booking_id):
-        raise IntegrityError('Номер вже зайнятий на вибрані дати')
 
     payload = {
         'room_id': int(room_id),
@@ -1382,7 +1419,31 @@ def save_room_booking(data, booking_id=None):
         'comment': (data.get('comment') or '').strip() or None,
     }
     with get_connection() as connection:
-        cursor = connection.cursor()
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute('SELECT id FROM rooms WHERE id = %s FOR UPDATE', (payload['room_id'],))
+        if not cursor.fetchone():
+            raise LookupError('Номер не знайдено')
+        if status in ROOM_BLOCKING_STATUSES:
+            overlap_params = {
+                **payload,
+                'id': booking_id or 0,
+            }
+            cursor.execute(
+                """
+                SELECT id
+                FROM room_bookings
+                WHERE room_id = %(room_id)s
+                  AND id <> %(id)s
+                  AND status IN ('pending', 'confirmed')
+                  AND check_in < %(check_out)s
+                  AND check_out > %(check_in)s
+                LIMIT 1
+                FOR UPDATE
+                """,
+                overlap_params,
+            )
+            if cursor.fetchone():
+                raise IntegrityError('Номер вже зайнятий на вибрані дати')
         if booking_id:
             payload['id'] = booking_id
             cursor.execute(
@@ -1428,8 +1489,8 @@ def create_public_room_booking(data, link_token):
     room_id = data.get('room_id')
     if not room_id:
         raise ValueError('Оберіть номер')
-    check_in = datetime.strptime(data.get('check_in'), '%Y-%m-%d').date()
-    check_out = datetime.strptime(data.get('check_out'), '%Y-%m-%d').date()
+    check_in = parse_booking_date(data.get('check_in'), 'Дата заїзду')
+    check_out = parse_booking_date(data.get('check_out'), 'Дата виїзду')
     if check_out <= check_in:
         raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
 
@@ -1445,6 +1506,7 @@ def create_public_room_booking(data, link_token):
         'comment': (data.get('comment') or '').strip() or None,
         'telegram_link_token': link_token,
         'telegram_user_id': data.get('telegram_user_id'),
+        'client_id': None,
     }
     if not payload['guest_name']:
         raise ValueError('Вкажіть імʼя та прізвище')
@@ -1453,6 +1515,19 @@ def create_public_room_booking(data, link_token):
 
     with get_connection() as connection:
         cursor = connection.cursor(dictionary=True)
+        if payload['telegram_user_id']:
+            cursor.execute(
+                """
+                SELECT id
+                FROM clients
+                WHERE telegram_user_id = %s
+                LIMIT 1
+                """,
+                (payload['telegram_user_id'],),
+            )
+            client = cursor.fetchone()
+            if client:
+                payload['client_id'] = client['id']
         cursor.execute('SELECT id FROM rooms WHERE id = %s AND is_active = TRUE FOR UPDATE', (payload['room_id'],))
         if not cursor.fetchone():
             raise LookupError('Номер не знайдено або він недоступний')
@@ -1475,13 +1550,13 @@ def create_public_room_booking(data, link_token):
             INSERT INTO room_bookings (
                 room_id, guest_name, guest_phone, guest_email,
                 check_in, check_out, check_in_time, check_out_time,
-                status, comment, telegram_user_id, telegram_link_token, telegram_link_expires_at,
+                status, comment, client_id, telegram_user_id, telegram_link_token, telegram_link_expires_at,
                 created_at, updated_at
             )
             VALUES (
                 %(room_id)s, %(guest_name)s, %(guest_phone)s, %(guest_email)s,
                 %(check_in)s, %(check_out)s, %(check_in_time)s, %(check_out_time)s,
-                'pending', %(comment)s, %(telegram_user_id)s, %(telegram_link_token)s, DATE_ADD(NOW(), INTERVAL 14 DAY),
+                'pending', %(comment)s, %(client_id)s, %(telegram_user_id)s, %(telegram_link_token)s, DATE_ADD(NOW(), INTERVAL 14 DAY),
                 NOW(), NOW()
             )
             """,
@@ -1571,6 +1646,16 @@ def link_room_booking_to_telegram(link_token, telegram_user_id):
         cursor.execute(
             """
             SELECT id
+            FROM clients
+            WHERE telegram_user_id = %s
+            LIMIT 1
+            """,
+            (telegram_user_id,),
+        )
+        client = cursor.fetchone()
+        cursor.execute(
+            """
+            SELECT id
             FROM room_bookings
             WHERE telegram_link_token = %s
               AND telegram_link_expires_at >= NOW()
@@ -1587,12 +1672,13 @@ def link_room_booking_to_telegram(link_token, telegram_user_id):
             """
             UPDATE room_bookings
             SET telegram_user_id = %s,
+                client_id = %s,
                 telegram_link_token = NULL,
                 telegram_link_expires_at = NULL,
                 updated_at = NOW()
             WHERE id = %s
             """,
-            (telegram_user_id, row['id']),
+            (telegram_user_id, client['id'] if client else None, row['id']),
         )
         connection.commit()
         return get_room_booking(row['id'])
@@ -1703,10 +1789,17 @@ def get_admin_clients(search=None, limit=200):
     rows = fetch_all(
         f"""
         SELECT c.*,
-               COUNT(b.id) AS bookings_count,
-               SUM(CASE WHEN b.booking_date >= CURDATE() AND b.status IN ('pending', 'confirmed') THEN 1 ELSE 0 END) AS upcoming_count
+               COUNT(DISTINCT b.id) AS service_bookings_count,
+               COUNT(DISTINCT rb.id) AS room_bookings_count,
+               (
+                   COUNT(DISTINCT b.id) + COUNT(DISTINCT rb.id)
+               ) AS bookings_count,
+               COUNT(DISTINCT CASE WHEN b.booking_date >= CURDATE() AND b.status IN ('pending', 'confirmed') THEN b.id END)
+               + COUNT(DISTINCT CASE WHEN rb.check_out >= CURDATE() AND rb.status IN ('pending', 'confirmed') THEN rb.id END) AS upcoming_count
         FROM clients c
         LEFT JOIN bookings b ON b.client_id = c.id
+        LEFT JOIN room_bookings rb
+          ON (rb.client_id = c.id OR (rb.client_id IS NULL AND rb.telegram_user_id = c.telegram_user_id))
         WHERE {where_clause}
         GROUP BY c.id
         ORDER BY c.last_seen DESC, c.created_at DESC
@@ -1721,6 +1814,8 @@ def get_admin_clients(search=None, limit=200):
             'created_at': serialize_datetime(row.get('created_at')),
             'updated_at': serialize_datetime(row.get('updated_at')),
             'bookings_count': row.get('bookings_count') or 0,
+            'service_bookings_count': row.get('service_bookings_count') or 0,
+            'room_bookings_count': row.get('room_bookings_count') or 0,
             'upcoming_count': row.get('upcoming_count') or 0,
         }
         for row in rows
@@ -1747,10 +1842,255 @@ def get_admin_client(client_id):
         'created_at': serialize_datetime(row.get('created_at')),
         'updated_at': serialize_datetime(row.get('updated_at')),
         'bookings': [serialize_admin_booking(booking) for booking in bookings],
+        'room_bookings': get_client_room_bookings(client_id),
     }
     client['upcoming_bookings'] = [
         booking for booking in client['bookings']
         if booking['status'] in ('pending', 'confirmed')
         and booking['booking_date'] >= date.today().isoformat()
     ]
+    client['upcoming_room_bookings'] = [
+        booking for booking in client['room_bookings']
+        if booking['status'] in ROOM_BLOCKING_STATUSES
+        and booking['check_out'] >= date.today().isoformat()
+    ]
     return client
+
+
+def serialize_announcement(row):
+    return {
+        'id': row['id'],
+        'title': row['title'],
+        'body': row.get('body'),
+        'media_url': row.get('media_url'),
+        'media_type': row.get('media_type'),
+        'status': row['status'],
+        'sent_at': serialize_datetime(row.get('sent_at')),
+        'created_at': serialize_datetime(row.get('created_at')),
+        'updated_at': serialize_datetime(row.get('updated_at')),
+        'recipients_count': row.get('recipients_count') or 0,
+        'sent_count': row.get('sent_count') or 0,
+        'failed_count': row.get('failed_count') or 0,
+    }
+
+
+def get_announcements():
+    rows = fetch_all(
+        """
+        SELECT a.*,
+               COUNT(ar.id) AS recipients_count,
+               COUNT(CASE WHEN ar.status = 'sent' THEN 1 END) AS sent_count,
+               COUNT(CASE WHEN ar.status = 'failed' THEN 1 END) AS failed_count
+        FROM announcements a
+        LEFT JOIN announcement_recipients ar ON ar.announcement_id = a.id
+        GROUP BY a.id
+        ORDER BY a.created_at DESC
+        """
+    )
+    return [serialize_announcement(row) for row in rows]
+
+
+def get_announcement(announcement_id, include_recipients=False):
+    row = fetch_one(
+        """
+        SELECT a.*,
+               COUNT(ar.id) AS recipients_count,
+               COUNT(CASE WHEN ar.status = 'sent' THEN 1 END) AS sent_count,
+               COUNT(CASE WHEN ar.status = 'failed' THEN 1 END) AS failed_count
+        FROM announcements a
+        LEFT JOIN announcement_recipients ar ON ar.announcement_id = a.id
+        WHERE a.id = %s
+        GROUP BY a.id
+        """,
+        (announcement_id,),
+    )
+    if not row:
+        return None
+    announcement = serialize_announcement(row)
+    if include_recipients:
+        announcement['recipients'] = fetch_all(
+            """
+            SELECT ar.*, c.telegram_user_id, c.username, c.first_name, c.last_name
+            FROM announcement_recipients ar
+            JOIN clients c ON c.id = ar.client_id
+            WHERE ar.announcement_id = %s
+            ORDER BY ar.id DESC
+            """,
+            (announcement_id,),
+        )
+    return announcement
+
+
+def save_announcement(data, announcement_id=None, media_url=None, media_type=None):
+    title = (data.get('title') or '').strip()
+    body = (data.get('body') or '').strip()
+    status = data.get('status') or 'draft'
+    if not title:
+        raise ValueError('Вкажіть заголовок оголошення')
+    if not body:
+        raise ValueError('Вкажіть текст оголошення')
+    if status not in ANNOUNCEMENT_STATUSES:
+        raise ValueError('Некоректний статус оголошення')
+    current_status = None
+    if announcement_id:
+        current = fetch_one('SELECT status FROM announcements WHERE id = %s', (announcement_id,))
+        current_status = current['status'] if current else None
+    if status == 'sent' and current_status != 'sent':
+        raise ValueError('Статус "надіслано" встановлюється тільки після фактичної розсилки')
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        payload = {
+            'title': title,
+            'body': body,
+            'status': status,
+            'media_url': media_url,
+            'media_type': media_type,
+            'id': announcement_id,
+        }
+        if announcement_id:
+            media_sql = ''
+            if media_url:
+                media_sql = ', media_url = %(media_url)s, media_type = %(media_type)s'
+            cursor.execute(
+                f"""
+                UPDATE announcements
+                SET title = %(title)s,
+                    body = %(body)s,
+                    status = CASE WHEN status = 'sent' THEN status ELSE %(status)s END
+                    {media_sql},
+                    updated_at = NOW()
+                WHERE id = %(id)s
+                """,
+                payload,
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO announcements (title, body, media_url, media_type, status, created_at, updated_at)
+                VALUES (%(title)s, %(body)s, %(media_url)s, %(media_type)s, %(status)s, NOW(), NOW())
+                """,
+                payload,
+            )
+            announcement_id = cursor.lastrowid
+        connection.commit()
+    return get_announcement(announcement_id, include_recipients=True)
+
+
+def delete_announcement(announcement_id):
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute("SELECT status FROM announcements WHERE id = %s", (announcement_id,))
+        row = cursor.fetchone()
+        if not row:
+            return False
+        if row['status'] == 'sent':
+            raise ValueError('Надіслане оголошення не можна видалити')
+        cursor.execute('DELETE FROM announcement_recipients WHERE announcement_id = %s', (announcement_id,))
+        cursor.execute('DELETE FROM announcements WHERE id = %s', (announcement_id,))
+        connection.commit()
+        return True
+
+
+def count_announcement_recipients():
+    row = fetch_one(
+        """
+        SELECT COUNT(*) AS count
+        FROM clients
+        WHERE status = 'active' AND telegram_user_id IS NOT NULL
+        """
+    )
+    return row['count'] if row else 0
+
+
+def prepare_announcement_recipients(announcement_id, retry_failed=False):
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute('SELECT * FROM announcements WHERE id = %s FOR UPDATE', (announcement_id,))
+        announcement = cursor.fetchone()
+        if not announcement:
+            raise LookupError('Оголошення не знайдено')
+        if announcement['status'] == 'draft':
+            raise ValueError('Чернетки не можна надсилати')
+        if announcement['status'] == 'sent' and not retry_failed:
+            raise ValueError('Оголошення вже надіслано')
+        if retry_failed:
+            cursor.execute(
+                """
+                SELECT ar.id, ar.client_id, c.telegram_user_id
+                FROM announcement_recipients ar
+                JOIN clients c ON c.id = ar.client_id
+                WHERE ar.announcement_id = %s AND ar.status = 'failed'
+                """,
+                (announcement_id,),
+            )
+            recipients = cursor.fetchall()
+            cursor.execute(
+                """
+                UPDATE announcement_recipients
+                SET status = 'pending', error_message = NULL, updated_at = NOW()
+                WHERE announcement_id = %s AND status = 'failed'
+                """,
+                (announcement_id,),
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT IGNORE INTO announcement_recipients (announcement_id, client_id, status, created_at, updated_at)
+                SELECT %s, id, 'pending', NOW(), NOW()
+                FROM clients
+                WHERE status = 'active' AND telegram_user_id IS NOT NULL
+                """,
+                (announcement_id,),
+            )
+            cursor.execute(
+                """
+                SELECT ar.id, ar.client_id, c.telegram_user_id
+                FROM announcement_recipients ar
+                JOIN clients c ON c.id = ar.client_id
+                WHERE ar.announcement_id = %s AND ar.status = 'pending'
+                """,
+                (announcement_id,),
+            )
+            recipients = cursor.fetchall()
+        connection.commit()
+        return serialize_announcement(announcement), recipients
+
+
+def mark_announcement_recipient_result(recipient_id, ok, error_message=None):
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            UPDATE announcement_recipients
+            SET status = %s,
+                error_message = %s,
+                sent_at = CASE WHEN %s THEN NOW() ELSE sent_at END,
+                updated_at = NOW()
+            WHERE id = %s
+            """,
+            ('sent' if ok else 'failed', None if ok else (error_message or 'Telegram API error')[:500], ok, recipient_id),
+        )
+        connection.commit()
+
+
+def finish_announcement_if_sent(announcement_id):
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT
+                COUNT(*) AS total_count,
+                COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pending_count,
+                COUNT(CASE WHEN status = 'sent' THEN 1 END) AS sent_count
+            FROM announcement_recipients
+            WHERE announcement_id = %s
+            """,
+            (announcement_id,),
+        )
+        stats = cursor.fetchone()
+        if stats and stats['total_count'] and not stats['pending_count'] and stats['sent_count'] == stats['total_count']:
+            cursor.execute(
+                "UPDATE announcements SET status = 'sent', sent_at = NOW(), updated_at = NOW() WHERE id = %s",
+                (announcement_id,),
+            )
+            connection.commit()

@@ -1,0 +1,80 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Оголошення #{{ announcement.id }}{% endblock %}
+{% block title %}{{ announcement.title }}{% endblock %}
+
+{% block content %}
+<div class="admin-grid two">
+    <section class="admin-panel detail-list">
+        <div class="panel-head">
+            <h2>Попередній перегляд</h2>
+        </div>
+        <dl>
+            <div><dt>Статус</dt><dd>{{ announcement.status }}</dd></div>
+            <div><dt>Одержувачів</dt><dd>{{ recipients_count }}</dd></div>
+            <div><dt>Надіслано</dt><dd>{{ announcement.sent_count }}</dd></div>
+            <div><dt>Помилок</dt><dd>{{ announcement.failed_count }}</dd></div>
+            <div class="full"><dt>Текст</dt><dd>{{ announcement.body }}</dd></div>
+            {% if announcement.media_url %}
+            <div class="full"><dt>Медіа</dt><dd>{{ announcement.media_url }}</dd></div>
+            {% endif %}
+        </dl>
+    </section>
+
+    <section class="admin-panel">
+        <div class="panel-head">
+            <h2>Дії</h2>
+        </div>
+        <div class="admin-actions vertical">
+            <a class="admin-secondary" href="{{ url_for('admin_announcement_edit', announcement_id=announcement.id) }}">Редагувати</a>
+            {% if announcement.status == 'ready' %}
+            <form method="post" action="{{ url_for('admin_announcement_send', announcement_id=announcement.id) }}" onsubmit="return confirm('Надіслати оголошення {{ recipients_count }} одержувачам?');">
+                <button type="submit" class="admin-primary">Надіслати {{ recipients_count }} одержувачам</button>
+            </form>
+            {% endif %}
+            {% if announcement.failed_count %}
+            <form method="post" action="{{ url_for('admin_announcement_retry_failed', announcement_id=announcement.id) }}" onsubmit="return confirm('Повторити надсилання тільки невдалим отримувачам?');">
+                <button type="submit" class="admin-secondary">Повторити невдалим</button>
+            </form>
+            {% endif %}
+            {% if announcement.status != 'sent' %}
+            <form method="post" action="{{ url_for('admin_announcement_delete', announcement_id=announcement.id) }}" onsubmit="return confirm('Видалити оголошення?');">
+                <button type="submit" class="danger-link">Видалити</button>
+            </form>
+            {% endif %}
+        </div>
+    </section>
+</div>
+
+<section class="admin-panel">
+    <div class="panel-head">
+        <h2>Результати надсилання</h2>
+    </div>
+    {% if announcement.recipients %}
+    <div class="table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Клієнт</th>
+                    <th>Chat ID</th>
+                    <th>Статус</th>
+                    <th>Помилка</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for recipient in announcement.recipients %}
+                <tr>
+                    <td>{{ recipient.first_name or recipient.username or recipient.client_id }}</td>
+                    <td>{{ recipient.telegram_user_id }}</td>
+                    <td>{{ recipient.status }}</td>
+                    <td>{{ recipient.error_message or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="admin-empty">Розсилку ще не запускали.</div>
+    {% endif %}
+</section>
+{% endblock %}

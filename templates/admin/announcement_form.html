@@ -1,0 +1,40 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Оголошення{% endblock %}
+{% block title %}{{ 'Редагувати оголошення' if announcement else 'Нове оголошення' }}{% endblock %}
+
+{% block content %}
+<section class="admin-panel">
+    <form method="post" enctype="multipart/form-data" class="admin-form">
+        <div class="form-grid">
+            <label class="full">
+                <span>Заголовок</span>
+                <input name="title" value="{{ announcement.title if announcement else '' }}" required>
+            </label>
+            <label class="full">
+                <span>Текст</span>
+                <textarea name="body" rows="7" required>{{ announcement.body if announcement else '' }}</textarea>
+            </label>
+            <label>
+                <span>Статус</span>
+                <select name="status">
+                    {% for status in ['draft', 'ready', 'sent'] %}
+                    <option value="{{ status }}" {{ 'selected' if announcement and announcement.status == status else '' }}>{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>Фото або відео</span>
+                <input type="file" name="media" accept="image/*,video/mp4,video/webm,video/quicktime">
+            </label>
+        </div>
+        {% if announcement and announcement.media_url %}
+        <p class="admin-note">Поточний файл: {{ announcement.media_url }}</p>
+        {% endif %}
+        <div class="admin-actions">
+            <button type="submit" class="admin-primary">Зберегти</button>
+            <a class="admin-secondary" href="{{ url_for('admin_announcements') }}">Скасувати</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

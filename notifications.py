@@ -1,5 +1,6 @@
 import json
 import logging
+from html import escape
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -85,18 +86,22 @@ def send_booking_notification(booking):
 
 
 def send_telegram_message(chat_id, text):
-    if not TELEGRAM_BOT_TOKEN or not chat_id:
-        logger.info('Telegram message skipped: token or chat id is missing')
-        return False
-
-    payload = {
+    ok, _error = send_telegram_payload('sendMessage', {
         'chat_id': chat_id,
         'text': text,
         'disable_web_page_preview': True,
-    }
+    })
+    return ok
+
+
+def send_telegram_payload(method, payload):
+    chat_id = payload.get('chat_id')
+    if not TELEGRAM_BOT_TOKEN or not chat_id:
+        return False, 'token or chat id is missing'
+
     data = json.dumps(payload).encode('utf-8')
     request = Request(
-        f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage',
+        f'https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/{method}',
         data=data,
         headers={'Content-Type': 'application/json'},
         method='POST',
@@ -106,12 +111,34 @@ def send_telegram_message(chat_id, text):
         with urlopen(request, timeout=8) as response:
             result = json.loads(response.read().decode('utf-8'))
             if not result.get('ok'):
-                logger.warning('Telegram message failed for chat %s: %s', chat_id, result.get('description'))
-                return False
-            return True
+                return False, result.get('description') or 'Telegram API error'
+            return True, None
     except (OSError, URLError, json.JSONDecodeError) as exc:
-        logger.warning('Telegram message failed for chat %s: %s', chat_id, exc)
-        return False
+        return False, str(exc)
+
+
+def send_announcement_message(chat_id, title, body, media_url=None, media_type=None):
+    text = f"<b>{escape(title)}</b>\n\n{escape(body)}"
+    if media_url and media_type == 'photo':
+        return send_telegram_payload('sendPhoto', {
+            'chat_id': chat_id,
+            'photo': media_url,
+            'caption': text,
+            'parse_mode': 'HTML',
+        })
+    if media_url and media_type == 'video':
+        return send_telegram_payload('sendVideo', {
+            'chat_id': chat_id,
+            'video': media_url,
+            'caption': text,
+            'parse_mode': 'HTML',
+        })
+    return send_telegram_payload('sendMessage', {
+        'chat_id': chat_id,
+        'text': text,
+        'parse_mode': 'HTML',
+        'disable_web_page_preview': True,
+    })
 
 
 def format_room_booking_admin_message(booking, admin_url=None):

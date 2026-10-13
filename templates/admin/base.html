@@ -37,6 +37,7 @@
                 <a class="{{ 'active' if request.endpoint in ['admin_menu', 'admin_menu_new', 'admin_menu_edit'] else '' }}" href="{{ url_for('admin_menu') }}">Меню</a>
                 <a class="{{ 'active' if request.endpoint == 'admin_categories' else '' }}" href="{{ url_for('admin_categories') }}">Категорії</a>
                 <a class="{{ 'active' if request.endpoint in ['admin_clients', 'admin_client_detail'] else '' }}" href="{{ url_for('admin_clients') }}">Клієнти</a>
+                <a class="{{ 'active' if request.endpoint in ['admin_announcements', 'admin_announcement_new', 'admin_announcement_edit', 'admin_announcement_detail'] else '' }}" href="{{ url_for('admin_announcements') }}">Оголошення</a>
                 <a class="{{ 'active' if request.endpoint == 'admin_settings' else '' }}" href="{{ url_for('admin_settings') }}">Налаштування</a>
             </nav>
 

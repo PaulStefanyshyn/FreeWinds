@@ -4,6 +4,7 @@ import json
 import os
 import re
 import secrets
+import threading
 import time
 import uuid
 from functools import wraps
@@ -46,8 +47,10 @@ from db import (
     cancel_booking,
     create_admin_user,
     create_booking,
+    count_announcement_recipients,
     create_public_room_booking,
     delete_banner,
+    delete_announcement,
     delete_room,
     delete_room_photo,
     delete_service,
@@ -59,9 +62,12 @@ from db import (
     get_admin_client,
     get_admin_clients,
     get_admin_rooms,
+    get_announcement,
+    get_announcements,
     get_availability,
     get_booking_notification_payload,
     get_client_bookings,
+    get_client_room_bookings,
     get_dashboard_summary,
     get_banners,
     get_menu_categories,
@@ -80,6 +86,7 @@ from db import (
     mark_admin_login,
     save_room,
     save_room_booking,
+    save_announcement,
     save_service,
     link_room_booking_to_telegram,
     mark_room_booking_admin_notified,
@@ -91,6 +98,9 @@ from db import (
     save_menu_category,
     save_menu_item,
     serialize_client,
+    finish_announcement_if_sent,
+    mark_announcement_recipient_result,
+    prepare_announcement_recipients,
     set_menu_category_active,
     set_menu_item_active,
     update_booking_status,
@@ -101,6 +111,7 @@ from db import (
     upsert_client_from_telegram,
 )
 from notifications import (
+    send_announcement_message,
     send_booking_notification,
     send_room_booking_admin_notification,
     send_room_booking_client_notification,
@@ -116,8 +127,11 @@ ROOM_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'rooms')
 BANNER_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'banners')
 SITE_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'site')
 SERVICE_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'services')
+ANNOUNCEMENT_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'announcements')
 ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
 ALLOWED_IMAGE_MIMES = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
+ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'mov'}
+ALLOWED_VIDEO_MIMES = {'video/mp4', 'video/webm', 'video/quicktime'}
 
 DEFAULT_HOUSE_DATA = {
     'start_date': '2026-10-12T00:00:00.000Z',
@@ -163,6 +177,10 @@ def allowed_image(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
 
 
+def allowed_announcement_media(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in (ALLOWED_IMAGE_EXTENSIONS | ALLOWED_VIDEO_EXTENSIONS)
+
+
 def save_uploaded_menu_image(file_storage):
     if not file_storage or not file_storage.filename:
         return None
@@ -195,6 +213,25 @@ def save_uploaded_image(file_storage, upload_folder, url_prefix):
     stored_name = f"{uuid.uuid4().hex}{ext.lower()}"
     file_storage.save(os.path.join(upload_folder, stored_name))
     return f"{url_prefix}/{stored_name}"
+
+
+def save_uploaded_announcement_media(file_storage):
+    if not file_storage or not file_storage.filename:
+        return None, None
+    if not allowed_announcement_media(file_storage.filename):
+        raise ValueError('Підтримуються jpg, jpeg, png, webp, gif, mp4, webm або mov.')
+    if file_storage.mimetype in ALLOWED_IMAGE_MIMES:
+        media_type = 'photo'
+    elif file_storage.mimetype in ALLOWED_VIDEO_MIMES:
+        media_type = 'video'
+    else:
+        raise ValueError('Файл має бути фото або відео.')
+    os.makedirs(ANNOUNCEMENT_UPLOAD_FOLDER, exist_ok=True)
+    filename = secure_filename(file_storage.filename)
+    _, ext = os.path.splitext(filename)
+    stored_name = f"{uuid.uuid4().hex}{ext.lower()}"
+    file_storage.save(os.path.join(ANNOUNCEMENT_UPLOAD_FOLDER, stored_name))
+    return f"/static/uploads/announcements/{stored_name}", media_type
 
 
 def bool_from_form(name, default=False):
@@ -244,6 +281,14 @@ def calculate_booking_preview(room, payload):
         raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
     total = float(room['price']) * nights if room.get('price') is not None else None
     return {**payload, 'room': room, 'nights': nights, 'total': total}
+
+
+def ensure_room_available_for_payload(room, payload):
+    if not room or not room.get('is_active'):
+        raise LookupError('Номер не знайдено або він тимчасово недоступний')
+    available_rooms = get_public_rooms(check_in=payload.get('check_in'), check_out=payload.get('check_out'))
+    if not any(candidate['id'] == payload.get('room_id') for candidate in available_rooms):
+        raise IntegrityError('Номер вже зайнятий на вибрані дати')
 
 
 def site_base_url():
@@ -366,11 +411,28 @@ def service():
 def rooms():
     check_in = request.args.get('check_in') or None
     check_out = request.args.get('check_out') or None
+    availability_error = None
     try:
         public_rooms = get_public_rooms(check_in=check_in, check_out=check_out)
-    except (ValueError, DatabaseUnavailable, Error):
+    except ValueError as exc:
+        availability_error = str(exc)
         public_rooms = []
-    return render_template('rooms.html', rooms=public_rooms, check_in=check_in, check_out=check_out)
+    except (DatabaseUnavailable, Error):
+        availability_error = 'Не вдалося перевірити доступність. Спробуйте пізніше.'
+        public_rooms = []
+    return render_template(
+        'rooms.html',
+        rooms=public_rooms,
+        check_in=check_in,
+        check_out=check_out,
+        availability_error=availability_error,
+        availability_checked=bool(check_in or check_out),
+    )
+
+
+@app.get('/my-bookings')
+def my_bookings():
+    return render_template('my_bookings.html')
 
 @app.route('/house', methods=['GET', 'POST'])
 @app.route('/house/<int:room_id>', methods=['GET'])
@@ -449,6 +511,7 @@ def room_booking_start(room_id):
             form['guest_name'] = request.form.get('guest_name')
             payload = validate_room_booking_payload(form, room_id)
             preview = calculate_booking_preview(room, payload)
+            ensure_room_available_for_payload(room, payload)
             session['pending_room_booking'] = payload
             session['pending_room_booking_preview'] = {
                 'room_id': room_id,
@@ -459,6 +522,9 @@ def room_booking_start(room_id):
             return redirect(url_for('room_booking_preview'))
         except ValueError as exc:
             errors.append(str(exc))
+        except IntegrityError:
+            flash('На вибрані дати цей номер вже зайнятий. Оберіть інший номер або змініть дати.', 'error')
+            return redirect(url_for('rooms', check_in=form.get('check_in'), check_out=form.get('check_out')))
 
     return render_template(
         'room_booking_form.html',
@@ -478,7 +544,11 @@ def room_booking_preview():
     try:
         room = get_room(payload['room_id'], include_photos=True)
         preview = calculate_booking_preview(room, payload)
-    except (TypeError, ValueError, DatabaseUnavailable, Error):
+        ensure_room_available_for_payload(room, payload)
+    except IntegrityError:
+        flash('На вибрані дати цей номер вже зайнятий. Оберіть інший номер або змініть дати.', 'error')
+        return redirect(url_for('rooms', check_in=payload.get('check_in'), check_out=payload.get('check_out')))
+    except (TypeError, ValueError, LookupError, DatabaseUnavailable, Error):
         flash('Дані бронювання застаріли. Заповніть форму ще раз.', 'error')
         return redirect(url_for('rooms'))
     return render_template(
@@ -575,6 +645,19 @@ def api_bookings():
         if not client:
             return error_response('Telegram authorization is required', 401)
         return jsonify({'bookings': get_client_bookings(client['id'])})
+    except DatabaseUnavailable as exc:
+        return error_response(str(exc), 503)
+    except Error:
+        return error_response('Database error', 500)
+
+
+@app.get('/api/room-bookings')
+def api_room_bookings():
+    try:
+        client = get_current_client()
+        if not client:
+            return error_response('Telegram authorization is required', 401)
+        return jsonify({'bookings': get_client_room_bookings(client['id'])})
     except DatabaseUnavailable as exc:
         return error_response(str(exc), 503)
     except Error:
@@ -1310,6 +1393,136 @@ def admin_client_detail(client_id):
         flash('Клієнта не знайдено.', 'error')
         return redirect(url_for('admin_clients'))
     return render_template('admin/client_detail.html', client=client)
+
+
+def announcement_public_media_url(announcement):
+    media_url = announcement.get('media_url')
+    if not media_url:
+        return None
+    if media_url.startswith('http://') or media_url.startswith('https://'):
+        return media_url
+    if SITE_BASE_URL:
+        return f"{SITE_BASE_URL.rstrip('/')}{media_url}"
+    return None
+
+
+def run_announcement_delivery(announcement_id, retry_failed=False):
+    with app.app_context():
+        try:
+            announcement, recipients = prepare_announcement_recipients(announcement_id, retry_failed=retry_failed)
+            media_url = announcement_public_media_url(announcement)
+            for recipient in recipients:
+                ok, error = send_announcement_message(
+                    recipient['telegram_user_id'],
+                    announcement['title'],
+                    announcement['body'],
+                    media_url=media_url,
+                    media_type=announcement.get('media_type'),
+                )
+                mark_announcement_recipient_result(recipient['id'], ok, error)
+                time.sleep(0.08)
+            finish_announcement_if_sent(announcement_id)
+        except Exception:
+            app.logger.exception('Announcement delivery failed')
+
+
+@app.get('/admin/announcements')
+@admin_required
+def admin_announcements():
+    announcements = get_announcements()
+    recipients_count = count_announcement_recipients()
+    return render_template('admin/announcements.html', announcements=announcements, recipients_count=recipients_count)
+
+
+@app.route('/admin/announcements/new', methods=['GET', 'POST'])
+@admin_required
+def admin_announcement_new():
+    if request.method == 'POST':
+        try:
+            media_url, media_type = save_uploaded_announcement_media(request.files.get('media'))
+            announcement = save_announcement(request.form, media_url=media_url, media_type=media_type)
+            flash('Оголошення збережено.', 'success')
+            return redirect(url_for('admin_announcement_detail', announcement_id=announcement['id']))
+        except ValueError as exc:
+            flash(str(exc), 'error')
+        except (DatabaseUnavailable, Error):
+            flash('Не вдалося зберегти оголошення.', 'error')
+    return render_template('admin/announcement_form.html', announcement=None)
+
+
+@app.route('/admin/announcements/<int:announcement_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def admin_announcement_edit(announcement_id):
+    announcement = get_announcement(announcement_id, include_recipients=True)
+    if not announcement:
+        flash('Оголошення не знайдено.', 'error')
+        return redirect(url_for('admin_announcements'))
+    if request.method == 'POST':
+        try:
+            media_url, media_type = save_uploaded_announcement_media(request.files.get('media'))
+            announcement = save_announcement(
+                request.form,
+                announcement_id=announcement_id,
+                media_url=media_url,
+                media_type=media_type,
+            )
+            flash('Оголошення оновлено.', 'success')
+            return redirect(url_for('admin_announcement_detail', announcement_id=announcement['id']))
+        except ValueError as exc:
+            flash(str(exc), 'error')
+        except (DatabaseUnavailable, Error):
+            flash('Не вдалося оновити оголошення.', 'error')
+    return render_template('admin/announcement_form.html', announcement=announcement)
+
+
+@app.get('/admin/announcements/<int:announcement_id>')
+@admin_required
+def admin_announcement_detail(announcement_id):
+    announcement = get_announcement(announcement_id, include_recipients=True)
+    if not announcement:
+        flash('Оголошення не знайдено.', 'error')
+        return redirect(url_for('admin_announcements'))
+    recipients_count = count_announcement_recipients()
+    return render_template('admin/announcement_detail.html', announcement=announcement, recipients_count=recipients_count)
+
+
+@app.post('/admin/announcements/<int:announcement_id>/delete')
+@admin_required
+def admin_announcement_delete(announcement_id):
+    try:
+        if delete_announcement(announcement_id):
+            flash('Оголошення видалено.', 'success')
+        else:
+            flash('Оголошення не знайдено.', 'error')
+    except ValueError as exc:
+        flash(str(exc), 'error')
+    return redirect(url_for('admin_announcements'))
+
+
+@app.post('/admin/announcements/<int:announcement_id>/send')
+@admin_required
+def admin_announcement_send(announcement_id):
+    announcement = get_announcement(announcement_id)
+    if not announcement:
+        flash('Оголошення не знайдено.', 'error')
+    elif announcement['status'] == 'draft':
+        flash('Чернетки не можна надсилати.', 'error')
+    elif announcement['status'] == 'sent':
+        flash('Це оголошення вже надіслано. Для повтору використайте надсилання невдалим отримувачам.', 'error')
+    else:
+        thread = threading.Thread(target=run_announcement_delivery, args=(announcement_id,), daemon=True)
+        thread.start()
+        flash('Розсилку запущено у фоні.', 'success')
+    return redirect(url_for('admin_announcement_detail', announcement_id=announcement_id))
+
+
+@app.post('/admin/announcements/<int:announcement_id>/retry-failed')
+@admin_required
+def admin_announcement_retry_failed(announcement_id):
+    thread = threading.Thread(target=run_announcement_delivery, args=(announcement_id, True), daemon=True)
+    thread.start()
+    flash('Повторне надсилання невдалим отримувачам запущено у фоні.', 'success')
+    return redirect(url_for('admin_announcement_detail', announcement_id=announcement_id))
 
 
 @app.get('/admin/settings')

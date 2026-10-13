@@ -25,7 +25,7 @@
 
     <section class="admin-panel">
         <div class="panel-head">
-            <h2>Майбутні бронювання</h2>
+            <h2>Майбутні бронювання послуг</h2>
         </div>
         {% set bookings = client.upcoming_bookings %}
         {% include "admin/partials/booking_table.html" with context %}
@@ -34,7 +34,49 @@
 
 <section class="admin-panel">
     <div class="panel-head">
-        <h2>Історія бронювань</h2>
+        <h2>Бронювання номерів</h2>
+    </div>
+    {% if client.room_bookings %}
+    <div class="table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Номер</th>
+                    <th>Дати</th>
+                    <th>Контакт</th>
+                    <th>Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for booking in client.room_bookings %}
+                <tr>
+                    <td>#{{ booking.id }}</td>
+                    <td>{{ booking.room_name }}</td>
+                    <td>
+                        <strong>{{ booking.check_in }}</strong>
+                        <small>до {{ booking.check_out }}</small>
+                    </td>
+                    <td>
+                        <strong>{{ booking.guest_name or '-' }}</strong>
+                        <small>{{ booking.guest_phone or '-' }}</small>
+                    </td>
+                    <td><span class="status-badge {{ booking.status }}">{{ booking.status_label }}</span></td>
+                    <td><a class="table-action" href="{{ url_for('admin_room_booking_detail', booking_id=booking.id) }}">Відкрити</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="admin-empty">Бронювань номерів немає.</div>
+    {% endif %}
+</section>
+
+<section class="admin-panel">
+    <div class="panel-head">
+        <h2>Історія бронювань послуг</h2>
     </div>
     {% set bookings = client.bookings %}
     {% include "admin/partials/booking_table.html" with context %}

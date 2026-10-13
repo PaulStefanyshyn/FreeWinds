@@ -1,0 +1,51 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Оголошення{% endblock %}
+{% block title %}Оголошення{% endblock %}
+
+{% block content %}
+<section class="admin-panel">
+    <div class="panel-head">
+        <div>
+            <h2>Масові повідомлення</h2>
+            <p>{{ recipients_count }} клієнтів мають Telegram chat_id.</p>
+        </div>
+        <a class="admin-primary" href="{{ url_for('admin_announcement_new') }}">Створити оголошення</a>
+    </div>
+
+    {% if announcements %}
+    <div class="table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Оголошення</th>
+                    <th>Статус</th>
+                    <th>Доставка</th>
+                    <th>Створено</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in announcements %}
+                <tr>
+                    <td>
+                        <strong>{{ item.title }}</strong>
+                        <small>{{ item.media_type or 'без медіа' }}</small>
+                    </td>
+                    <td><span class="status-badge {{ item.status }}">{{ item.status }}</span></td>
+                    <td>
+                        <strong>{{ item.sent_count }}/{{ item.recipients_count }}</strong>
+                        <small>{{ item.failed_count }} помилок</small>
+                    </td>
+                    <td>{{ item.created_at }}</td>
+                    <td><a class="table-action" href="{{ url_for('admin_announcement_detail', announcement_id=item.id) }}">Відкрити</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="admin-empty">Оголошень ще немає.</div>
+    {% endif %}
+</section>
+{% endblock %}
