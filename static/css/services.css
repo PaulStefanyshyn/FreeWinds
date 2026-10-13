@@ -1,10 +1,14 @@
 .services {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 18px;
 }
 
 .booking-hero {
+    min-width: 0;
     display: grid;
     grid-template-columns: auto 1fr;
     align-items: start;
@@ -17,6 +21,12 @@
 
 .booking-title h1 {
     margin-top: 6px;
+}
+
+.booking-title,
+.section-title > div,
+.summary-card dl div {
+    min-width: 0;
 }
 
 .booking-title p:not(.eyebrow) {
@@ -34,6 +44,7 @@
 }
 
 .booking-steps {
+    min-width: 0;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
@@ -41,6 +52,7 @@
 
 .step {
     position: relative;
+    min-width: 0;
     min-height: 76px;
     padding: 12px;
     display: flex;
@@ -82,6 +94,8 @@
 }
 
 .booking-layout {
+    width: 100%;
+    min-width: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
     gap: 18px;
@@ -89,6 +103,7 @@
 }
 
 .booking-main {
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 18px;
@@ -97,6 +112,8 @@
 .booking-section,
 .summary-card,
 .my-bookings {
+    min-width: 0;
+    max-width: 100%;
     padding: clamp(18px, 3vw, 26px);
     background: rgba(255, 253, 248, 0.88);
     border: 1px solid var(--color-border);
@@ -105,13 +122,15 @@
 }
 
 #propose {
+    min-width: 0;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: 14px;
 }
 
 #propose .card {
     position: relative;
+    min-width: 0;
     min-height: 220px;
     display: flex;
     flex-direction: column;
@@ -153,12 +172,14 @@
 #propose .card h2 {
     color: var(--color-text);
     font-size: 17px;
+    overflow-wrap: anywhere;
 }
 
 #propose .card p {
     color: var(--color-secondary);
     font-size: 14px;
     font-weight: 900;
+    overflow-wrap: anywhere;
 }
 
 #propose .card span {
@@ -182,10 +203,11 @@
 }
 
 #dates_catalog {
+    max-width: 100%;
+    min-width: 0;
     display: grid;
-    grid-template-columns: repeat(7, minmax(82px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
     gap: 10px;
-    overflow-x: auto;
     padding-bottom: 4px;
 }
 
@@ -195,7 +217,7 @@
 }
 
 #dates_catalog .date {
-    min-width: 82px;
+    min-width: 0;
     min-height: 104px;
     padding: 12px 10px;
     display: flex;
@@ -242,8 +264,9 @@
 }
 
 #times_catalog {
+    min-width: 0;
     display: grid;
-    grid-template-columns: repeat(4, minmax(86px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
     gap: 10px;
 }
 
@@ -275,6 +298,7 @@
 }
 
 .booking-summary {
+    min-width: 0;
     position: sticky;
     top: 104px;
 }
@@ -287,6 +311,7 @@
 
 .summary-card h2 {
     font-size: 24px;
+    overflow-wrap: anywhere;
 }
 
 .summary-card dl {
@@ -314,6 +339,8 @@
     color: var(--color-text);
     font-size: 14px;
     font-weight: 900;
+    overflow-wrap: anywhere;
+    text-align: right;
 }
 
 .comment {
@@ -356,12 +383,14 @@
 }
 
 #bookings_catalog {
+    min-width: 0;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
 }
 
 .booking-card {
+    min-width: 0;
     padding: 16px;
     display: flex;
     flex-direction: column;
@@ -394,7 +423,7 @@
 }
 
 .skeleton-line {
-    min-width: 82px;
+    min-width: 0;
     min-height: 104px;
     border-radius: 20px;
     background: linear-gradient(90deg, var(--color-surface-soft), #fbf8f0, var(--color-surface-soft));
@@ -436,11 +465,17 @@
         grid-template-columns: 1fr;
     }
 
-    #dates_catalog {
-        display: flex;
-    }
-
     #times_catalog {
         grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 420px) {
+    .booking-steps {
+        grid-template-columns: 1fr;
+    }
+
+    #dates_catalog {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
