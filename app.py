@@ -450,12 +450,29 @@ def house(room_id=None):
         if not room or not room['is_active']:
             flash('Номер не знайдено або він тимчасово недоступний.', 'error')
             return redirect(url_for('rooms'))
+        check_in = request.args.get('check_in') or ''
+        check_out = request.args.get('check_out') or ''
+        if check_in or check_out:
+            try:
+                ensure_room_available_for_payload(
+                    room,
+                    {'room_id': room['id'], 'check_in': check_in, 'check_out': check_out},
+                )
+            except IntegrityError:
+                flash('На вибрані дати цей номер вже зайнятий. Оберіть інший номер або змініть дати.', 'error')
+                return redirect(url_for('rooms', check_in=check_in, check_out=check_out))
+            except ValueError as exc:
+                flash(str(exc), 'error')
+                return redirect(url_for('rooms'))
+            except (DatabaseUnavailable, Error):
+                flash('Не вдалося перевірити доступність. Спробуйте пізніше.', 'error')
+                return redirect(url_for('rooms'))
         data = {
             'id': room['id'],
-            'check_in': request.args.get('check_in') or '',
-            'check_out': request.args.get('check_out') or '',
-            'start_date': request.args.get('check_in') or DEFAULT_HOUSE_DATA['start_date'],
-            'end_date': request.args.get('check_out') or DEFAULT_HOUSE_DATA['end_date'],
+            'check_in': check_in,
+            'check_out': check_out,
+            'start_date': check_in or DEFAULT_HOUSE_DATA['start_date'],
+            'end_date': check_out or DEFAULT_HOUSE_DATA['end_date'],
             'name': room['name'],
             'description': room['description'],
             'img': [photo['image_url'] for photo in room.get('photos', [])] or [room['primary_photo_url']],
@@ -493,11 +510,23 @@ def room_booking_start(room_id):
         'check_out': request.args.get('check_out') or '',
         'comment': '',
     }
+    if request.method == 'POST':
+        form.update({key: request.form.get(key, '') for key in form})
     if not form['check_in'] or not form['check_out']:
         flash('Спочатку оберіть дати заїзду та виїзду.', 'error')
         return redirect(url_for('rooms'))
+    try:
+        ensure_room_available_for_payload(room, {**form, 'room_id': room_id})
+    except IntegrityError:
+        flash('На вибрані дати цей номер вже зайнятий. Оберіть інший номер або змініть дати.', 'error')
+        return redirect(url_for('rooms', check_in=form.get('check_in'), check_out=form.get('check_out')))
+    except ValueError as exc:
+        flash(str(exc), 'error')
+        return redirect(url_for('rooms'))
+    except (DatabaseUnavailable, Error):
+        flash('Не вдалося перевірити доступність. Спробуйте пізніше.', 'error')
+        return redirect(url_for('rooms'))
     if request.method == 'POST':
-        form.update({key: request.form.get(key, '') for key in form})
         try:
             telegram_user = verify_telegram_init_data(request.form.get('initData'))
             if not telegram_user:

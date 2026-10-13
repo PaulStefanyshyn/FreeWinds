@@ -1168,7 +1168,6 @@ def get_admin_rooms(search=None, include_inactive=True):
 
 
 def get_public_rooms(check_in=None, check_out=None):
-    rooms = get_admin_rooms(include_inactive=False)
     if check_in or check_out:
         if not check_in or not check_out:
             raise ValueError('Оберіть дату заїзду та виїзду')
@@ -1176,8 +1175,26 @@ def get_public_rooms(check_in=None, check_out=None):
         check_out = parse_booking_date(check_out, 'Дата виїзду')
         if check_out <= check_in:
             raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
-        return [room for room in rooms if not room_has_overlap(room['id'], check_in, check_out)]
-    return rooms
+        rows = fetch_all(
+            room_base_query(
+                """
+                r.is_active = 1
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM room_bookings rb
+                    WHERE rb.room_id = r.id
+                      AND rb.status IN ('pending', 'confirmed')
+                      AND rb.check_in < %s
+                      AND rb.check_out > %s
+                )
+                """
+            ) + """
+            ORDER BY r.sort_order, r.name
+            """,
+            (check_out, check_in),
+        )
+        return [serialize_room(row) for row in rows]
+    return get_admin_rooms(include_inactive=False)
 
 
 def get_room(room_id, include_photos=False):
