@@ -1183,6 +1183,7 @@ def create_public_room_booking(data, link_token):
         'check_out_time': data.get('check_out_time') or None,
         'comment': (data.get('comment') or '').strip() or None,
         'telegram_link_token': link_token,
+        'telegram_user_id': data.get('telegram_user_id'),
     }
     if not payload['guest_name']:
         raise ValueError('Вкажіть імʼя та прізвище')
@@ -1213,13 +1214,13 @@ def create_public_room_booking(data, link_token):
             INSERT INTO room_bookings (
                 room_id, guest_name, guest_phone, guest_email,
                 check_in, check_out, check_in_time, check_out_time,
-                status, comment, telegram_link_token, telegram_link_expires_at,
+                status, comment, telegram_user_id, telegram_link_token, telegram_link_expires_at,
                 created_at, updated_at
             )
             VALUES (
                 %(room_id)s, %(guest_name)s, %(guest_phone)s, %(guest_email)s,
                 %(check_in)s, %(check_out)s, %(check_in_time)s, %(check_out_time)s,
-                'pending', %(comment)s, %(telegram_link_token)s, DATE_ADD(NOW(), INTERVAL 14 DAY),
+                'pending', %(comment)s, %(telegram_user_id)s, %(telegram_link_token)s, DATE_ADD(NOW(), INTERVAL 14 DAY),
                 NOW(), NOW()
             )
             """,

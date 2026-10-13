@@ -43,6 +43,24 @@
     font-weight: 900;
 }
 
+.readonly-field {
+    display: grid;
+    gap: 7px;
+    padding: 12px 13px;
+    background: var(--color-surface-soft);
+    border-radius: var(--radius-sm);
+}
+
+.readonly-field span {
+    color: var(--color-muted);
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.readonly-field strong {
+    color: var(--color-text);
+}
+
 .form-grid input,
 .form-grid textarea {
     width: 100%;

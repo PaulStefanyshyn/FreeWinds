@@ -23,7 +23,17 @@ from flask import (
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
-from config import ADMIN_NAME, ADMIN_PASSWORD, ADMIN_USERNAME, SECRET_KEY, SITE_BASE_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME
+from config import (
+    ADMIN_NAME,
+    ADMIN_PASSWORD,
+    ADMIN_USERNAME,
+    ROOM_CHECK_IN_TIME,
+    ROOM_CHECK_OUT_TIME,
+    SECRET_KEY,
+    SITE_BASE_URL,
+    TELEGRAM_BOT_TOKEN,
+    TELEGRAM_BOT_USERNAME,
+)
 from db import (
     BOOKING_STATUSES,
     STATUS_LABELS,
@@ -189,23 +199,29 @@ def normalize_phone(value):
 
 
 def validate_room_booking_payload(data, room_id):
+    user = data.get('telegram_user') or {}
+    guest_name = ' '.join(
+        part for part in [user.get('first_name'), user.get('last_name')]
+        if part
+    ).strip() or user.get('username') or ''
     payload = {
         'room_id': room_id,
-        'guest_name': (data.get('guest_name') or '').strip(),
+        'guest_name': guest_name,
         'guest_phone': normalize_phone(data.get('guest_phone')),
-        'guest_email': (data.get('guest_email') or '').strip(),
+        'guest_email': '',
         'check_in': data.get('check_in'),
         'check_out': data.get('check_out'),
-        'check_in_time': data.get('check_in_time') or None,
-        'check_out_time': data.get('check_out_time') or None,
+        'check_in_time': ROOM_CHECK_IN_TIME,
+        'check_out_time': ROOM_CHECK_OUT_TIME,
         'comment': (data.get('comment') or '').strip(),
+        'telegram_user_id': user.get('id'),
     }
     if not payload['guest_name']:
-        raise ValueError('Вкажіть імʼя та прізвище')
+        raise ValueError('Не вдалося отримати імʼя з Telegram. Відкрийте бронювання через бота.')
+    if not payload['telegram_user_id']:
+        raise ValueError('Не вдалося підтвердити Telegram-користувача. Відкрийте бронювання через бота.')
     if not payload['check_in'] or not payload['check_out']:
-        raise ValueError('Оберіть дату заїзду та виїзду')
-    if payload['guest_email'] and '@' not in payload['guest_email']:
-        raise ValueError('Вкажіть коректний email або залиште поле порожнім')
+        raise ValueError('Оберіть дату заїзду та виїзду на сторінці номерів')
     return payload
 
 
@@ -365,6 +381,8 @@ def house(room_id=None):
             return redirect(url_for('rooms'))
         data = {
             'id': room['id'],
+            'check_in': request.args.get('check_in') or '',
+            'check_out': request.args.get('check_out') or '',
             'start_date': request.args.get('check_in') or DEFAULT_HOUSE_DATA['start_date'],
             'end_date': request.args.get('check_out') or DEFAULT_HOUSE_DATA['end_date'],
             'name': room['name'],
@@ -399,18 +417,21 @@ def room_booking_start(room_id):
 
     errors = []
     form = {
-        'guest_name': '',
         'guest_phone': '',
-        'guest_email': '',
         'check_in': request.args.get('check_in') or '',
         'check_out': request.args.get('check_out') or '',
-        'check_in_time': '',
-        'check_out_time': '',
         'comment': '',
     }
+    if not form['check_in'] or not form['check_out']:
+        flash('Спочатку оберіть дати заїзду та виїзду.', 'error')
+        return redirect(url_for('rooms'))
     if request.method == 'POST':
         form.update({key: request.form.get(key, '') for key in form})
         try:
+            telegram_user = verify_telegram_init_data(request.form.get('initData'))
+            if not telegram_user:
+                raise ValueError('Для бронювання відкрийте сторінку через Telegram-бота.')
+            form['telegram_user'] = telegram_user
             payload = validate_room_booking_payload(form, room_id)
             preview = calculate_booking_preview(room, payload)
             session['pending_room_booking'] = payload
@@ -424,7 +445,14 @@ def room_booking_start(room_id):
         except ValueError as exc:
             errors.append(str(exc))
 
-    return render_template('room_booking_form.html', room=room, form=form, errors=errors)
+    return render_template(
+        'room_booking_form.html',
+        room=room,
+        form=form,
+        errors=errors,
+        check_in_time=ROOM_CHECK_IN_TIME,
+        check_out_time=ROOM_CHECK_OUT_TIME,
+    )
 
 
 @app.get('/rooms/booking/preview')
@@ -467,13 +495,13 @@ def room_booking_confirm():
         return redirect(url_for('room_booking_success', booking_id=booking['id']))
     except IntegrityError:
         flash('На жаль, номер вже зайнятий на вибрані дати. Оберіть інший період.', 'error')
-        return redirect(url_for('room_booking_start', room_id=payload.get('room_id')))
+        return redirect(url_for('room_booking_start', room_id=payload.get('room_id'), check_in=payload.get('check_in'), check_out=payload.get('check_out')))
     except (ValueError, LookupError) as exc:
         flash(str(exc), 'error')
-        return redirect(url_for('room_booking_start', room_id=payload.get('room_id')))
+        return redirect(url_for('room_booking_start', room_id=payload.get('room_id'), check_in=payload.get('check_in'), check_out=payload.get('check_out')))
     except (DatabaseUnavailable, Error):
         flash('Не вдалося створити бронювання. Спробуйте ще раз пізніше.', 'error')
-        return redirect(url_for('room_booking_start', room_id=payload.get('room_id')))
+        return redirect(url_for('room_booking_start', room_id=payload.get('room_id'), check_in=payload.get('check_in'), check_out=payload.get('check_out')))
 
 
 @app.get('/rooms/booking/success/<int:booking_id>')
@@ -486,7 +514,7 @@ def room_booking_success(booking_id):
     return render_template(
         'room_booking_success.html',
         booking=booking,
-        telegram_link=telegram_link_url(booking.get('telegram_link_token')),
+        telegram_link=None if booking.get('telegram_linked') else telegram_link_url(booking.get('telegram_link_token')),
     )
 
 

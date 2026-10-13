@@ -23,35 +23,30 @@
     {% endif %}
 
     <form method="post" class="booking-form">
+        <input type="hidden" name="initData" id="telegram_init_data">
         <div class="form-grid">
-            <label>
-                <span>Імʼя та прізвище</span>
-                <input name="guest_name" value="{{ form.guest_name }}" required>
-            </label>
             <label>
                 <span>Телефон</span>
                 <input name="guest_phone" value="{{ form.guest_phone }}" placeholder="+380..." required>
             </label>
-            <label>
-                <span>Email</span>
-                <input type="email" name="guest_email" value="{{ form.guest_email }}">
-            </label>
-            <label>
+            <div class="readonly-field">
                 <span>Дата заїзду</span>
-                <input type="date" name="check_in" value="{{ form.check_in }}" required>
-            </label>
-            <label>
+                <strong>{{ form.check_in }}</strong>
+                <input type="hidden" name="check_in" value="{{ form.check_in }}">
+            </div>
+            <div class="readonly-field">
                 <span>Дата виїзду</span>
-                <input type="date" name="check_out" value="{{ form.check_out }}" required>
-            </label>
-            <label>
+                <strong>{{ form.check_out }}</strong>
+                <input type="hidden" name="check_out" value="{{ form.check_out }}">
+            </div>
+            <div class="readonly-field">
                 <span>Час заїзду</span>
-                <input type="time" name="check_in_time" value="{{ form.check_in_time }}">
-            </label>
-            <label>
+                <strong>{{ check_in_time }}</strong>
+            </div>
+            <div class="readonly-field">
                 <span>Час виїзду</span>
-                <input type="time" name="check_out_time" value="{{ form.check_out_time }}">
-            </label>
+                <strong>{{ check_out_time }}</strong>
+            </div>
             <label class="full">
                 <span>Коментар або побажання</span>
                 <textarea name="comment" rows="4">{{ form.comment }}</textarea>
@@ -64,4 +59,17 @@
         </div>
     </form>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const telegram = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+        if (telegram) {
+            telegram.ready();
+            telegram.expand();
+            document.getElementById("telegram_init_data").value = telegram.initData || "";
+        }
+    });
+</script>
 {% endblock %}

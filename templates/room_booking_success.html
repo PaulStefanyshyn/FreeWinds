@@ -26,7 +26,9 @@
 
     <div class="telegram-link-box">
         <h2>Telegram-сповіщення</h2>
-        {% if telegram_link %}
+        {% if booking.telegram_linked %}
+        <p>Telegram уже привʼязаний до цієї заявки. Ми повідомимо вас після підтвердження або скасування.</p>
+        {% elif telegram_link %}
         <p>Щоб отримати повідомлення після підтвердження або скасування, привʼяжіть цю заявку до Telegram.</p>
         <a class="btn btn-primary" href="{{ telegram_link }}">Привʼязати Telegram</a>
         {% elif booking.telegram_link_token %}

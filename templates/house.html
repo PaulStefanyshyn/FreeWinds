@@ -46,7 +46,7 @@
     <div id="calendar"></div>
 
     {% if data.id is defined %}
-    <a id="reserve" class="reserve-link" href="{{ url_for('room_booking_start', room_id=data.id) }}">Забронювати номер</a>
+    <a id="reserve" class="reserve-link" href="{{ url_for('room_booking_start', room_id=data.id, check_in=data.check_in, check_out=data.check_out) }}">Забронювати номер</a>
     {% else %}
     <a id="reserve" class="reserve-link" href="/service">Забронювати послугу</a>
     {% endif %}
