@@ -208,6 +208,11 @@
     cursor: pointer;
 }
 
+.days .reserved{
+    color: darkred;
+    cursor: none;
+}
+
 .days p:not(:empty):hover {
     background: rgba(49, 95, 119, 0.1);
 }

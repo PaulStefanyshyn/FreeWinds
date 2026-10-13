@@ -5,7 +5,7 @@
 {% endblock %}
 
 {% block content %}
-    {% include 'header.html' %}
+{% include 'header.html' %}
 
 <div class="houses">
     <div class="page-title">
@@ -46,7 +46,9 @@
     <div id="calendar"></div>
 
     {% if data.id is defined %}
-    <a id="reserve" class="reserve-link" href="{{ url_for('room_booking_start', room_id=data.id, check_in=data.check_in, check_out=data.check_out) }}">Забронювати номер</a>
+    <a id="reserve" class="reserve-link"
+        href="{{ url_for('room_booking_start', room_id=data.id, check_in=data.check_in, check_out=data.check_out) }}">Забронювати
+        номер</a>
     {% else %}
     <a id="reserve" class="reserve-link" href="/service">Забронювати послугу</a>
     {% endif %}
@@ -202,58 +204,70 @@
             const element = document.createElement('p');
             element.textContent = day + 1;
 
-            element.onclick = function () {
-                const value = Number(element.textContent);
+            let is_reserved = false;
 
-                if (clicked_date.length === 0) {
-                    clicked_date.push(value);
+            rooms['reserved_date'].forEach(rdate => {
+                if (day + 1 == rdate.getDate()) {
+                    element.classList.add('reserved');
+                    is_reserved = true;
                 }
-                else if (clicked_date.length === 1) {
-                    const start = Math.min(clicked_date[0], value);
-                    const end = Math.max(clicked_date[0], value);
+            });
 
-                    // Очистити старий масив
-                    clicked_date.length = 0;
+            if (!is_reserved) {
+                element.onclick = function () {
+                    const value = Number(element.textContent);
 
-                    // Додати всі дні діапазону
-                    for (let day = start; day <= end; day++) {
-                        clicked_date.push(day);
+                    if (clicked_date.length === 0) {
+                        clicked_date.push(value);
                     }
-                }
-                else {
-                    // Почати новий вибір
-                    clicked_date.length = 0;
-                    clicked_date.push(value);
-                }
+                    else if (clicked_date.length === 1) {
+                        const start = Math.min(clicked_date[0], value);
+                        const end = Math.max(clicked_date[0], value);
 
-                const dat = document.querySelectorAll('.days p');
+                        // Очистити старий масив
+                        clicked_date.length = 0;
 
-                dat.forEach(el => {
-                    const day = Number(el.textContent);
-
-                    el.classList.remove('active', 'include');
-
-                    if (clicked_date.length === 1) {
-                        if (day === clicked_date[0]) {
-                            el.classList.add('active');
+                        // Додати всі дні діапазону
+                        for (let day = start; day <= end; day++) {
+                            clicked_date.push(day);
                         }
                     }
                     else {
-                        // Перший і останній
-                        if (
-                            day === clicked_date[0] ||
-                            day === clicked_date[clicked_date.length - 1]
-                        ) {
-                            el.classList.add('active');
-                        }
-
-                        // Всі дні всередині
-                        else if (clicked_date.includes(day)) {
-                            el.classList.add('include');
-                        }
+                        // Почати новий вибір
+                        clicked_date.length = 0;
+                        clicked_date.push(value);
                     }
-                });
-            };
+
+                    const dat = document.querySelectorAll('.days p');
+
+                    dat.forEach(el => {
+                        const day = Number(el.textContent);
+
+                        el.classList.remove('active', 'include');
+
+                        if (clicked_date.length === 1) {
+                            if (day === clicked_date[0]) {
+                                el.classList.add('active');
+                            }
+                        }
+                        else {
+                            // Перший і останній
+                            if (
+                                day === clicked_date[0] ||
+                                day === clicked_date[clicked_date.length - 1]
+                            ) {
+                                el.classList.add('active');
+                            }
+
+                            // Всі дні всередині
+                            else if (clicked_date.includes(day)) {
+                                el.classList.add('include');
+                            }
+                        }
+                    });
+                };
+            }
+
 
             days_block.appendChild(element);
         }
@@ -262,47 +276,48 @@
     }
 
     function slideshow() {
-        const images = {{ data.img | tojson}};
+        const images = {{ data.img | tojson
+    }};
 
-        const image = document.getElementById("slider-image");
-        const dots = document.getElementById("slider-dots");
+    const image = document.getElementById("slider-image");
+    const dots = document.getElementById("slider-dots");
 
-        let current = 0;
+    let current = 0;
 
-        function showImage(index) {
-            current = index;
+    function showImage(index) {
+        current = index;
 
-            image.src = images[current];
+        image.src = images[current];
 
-            document.querySelectorAll(".dot").forEach((dot, i) => {
-                dot.classList.toggle("active", i === current);
-            });
-        }
-
-        // Create as many dots as there are images
-        images.forEach((_, index) => {
-            const dot = document.createElement("button");
-
-            dot.classList.add("dot");
-
-            dot.onclick = () => {
-                showImage(index);
-            };
-
-            dots.appendChild(dot);
+        document.querySelectorAll(".dot").forEach((dot, i) => {
+            dot.classList.toggle("active", i === current);
         });
+    }
 
-        document.getElementById("next-btn").onclick = () => {
-            showImage((current + 1) % images.length);
+    // Create as many dots as there are images
+    images.forEach((_, index) => {
+        const dot = document.createElement("button");
+
+        dot.classList.add("dot");
+
+        dot.onclick = () => {
+            showImage(index);
         };
 
-        document.getElementById("prev-btn").onclick = () => {
-            showImage((current - 1 + images.length) % images.length);
-        };
+        dots.appendChild(dot);
+    });
 
-        if (images.length > 0) {
-            showImage(0);
-        }
+    document.getElementById("next-btn").onclick = () => {
+        showImage((current + 1) % images.length);
+    };
+
+    document.getElementById("prev-btn").onclick = () => {
+        showImage((current - 1 + images.length) % images.length);
+    };
+
+    if (images.length > 0) {
+        showImage(0);
+    }
 
     }
 
@@ -312,20 +327,20 @@
         const calendar = document.getElementById('calendar');
 
         const first = new Date({{ data.start_date | tojson }});
-        const last = new Date({{ data.end_date | tojson }});
+    const last = new Date({{ data.end_date | tojson }});
 
-        create_calendar(first);
+    create_calendar(first);
 
-        const days = document.querySelectorAll('.days p');
+    const days = document.querySelectorAll('.days p');
 
-        days.forEach(day => {
-            if (day.textContent == first.getDate() || day.textContent == last.getDate()) {
-                day.classList.add('active');
-            }
-            else if (day.textContent > first.getDate() && day.textContent < last.getDate()) {
-                day.classList.add('include');
-            }
-        });
+    days.forEach(day => {
+        if (day.textContent == first.getDate() || day.textContent == last.getDate()) {
+            day.classList.add('active');
+        }
+        else if (day.textContent > first.getDate() && day.textContent < last.getDate()) {
+            day.classList.add('include');
+        }
+    });
 
     });
 </script>
