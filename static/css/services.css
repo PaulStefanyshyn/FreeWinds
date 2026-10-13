@@ -144,7 +144,8 @@
 
 #propose .card h2,
 #propose .card p,
-#propose .card span {
+#propose .card span,
+#propose .card small {
     margin-left: 14px;
     margin-right: 14px;
 }
@@ -160,19 +161,24 @@
     font-weight: 900;
 }
 
-#propose .card p::after {
-    content: " грн / год";
-}
-
 #propose .card span {
     width: fit-content;
-    margin-bottom: 14px;
     padding: 5px 9px;
     color: var(--color-primary);
     background: rgba(49, 95, 119, 0.1);
     border-radius: 999px;
     font-size: 11px;
     font-weight: 800;
+}
+
+#propose .card small {
+    display: -webkit-box;
+    margin-bottom: 14px;
+    overflow: hidden;
+    color: var(--color-muted);
+    font-size: 12px;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 
 #dates_catalog {

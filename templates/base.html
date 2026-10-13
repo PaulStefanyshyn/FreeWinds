@@ -26,6 +26,14 @@
         {% block content %}{% endblock %}
     </main>
 
+    <script>
+        const freewindsTelegramWebApp = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+        if (freewindsTelegramWebApp) {
+            freewindsTelegramWebApp.ready();
+            freewindsTelegramWebApp.expand();
+            document.documentElement.classList.add("telegram-webapp");
+        }
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 

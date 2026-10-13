@@ -227,7 +227,9 @@
             name.textContent = element.name;
 
             const price = document.createElement('p');
-            price.textContent = element.price;
+            price.textContent = element.price === null
+                ? "Ціну уточнюйте"
+                : `${element.price} грн / ${element.price_unit || "год"}`;
 
             const meta = document.createElement('span');
             meta.textContent = `${element.duration_minutes || 60} хв`;
@@ -236,6 +238,11 @@
             card.appendChild(name);
             card.appendChild(price);
             card.appendChild(meta);
+            if (element.description) {
+                const description = document.createElement('small');
+                description.textContent = element.description;
+                card.appendChild(description);
+            }
 
             card.onclick = function () {
                 selectService(element.id);

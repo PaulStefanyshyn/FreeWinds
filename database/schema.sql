@@ -23,7 +23,9 @@ CREATE TABLE IF NOT EXISTS services (
     name VARCHAR(255) NOT NULL,
     description TEXT NULL,
     price DECIMAL(10, 2) NOT NULL,
+    price_unit VARCHAR(80) NOT NULL DEFAULT 'год',
     duration_minutes INT UNSIGNED NOT NULL DEFAULT 60,
+    conditions TEXT NULL,
     image_url VARCHAR(500) NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     sort_order INT NOT NULL DEFAULT 0,
@@ -32,6 +34,21 @@ CREATE TABLE IF NOT EXISTS services (
     PRIMARY KEY (id),
     UNIQUE KEY uq_services_name (name),
     KEY idx_services_active_sort (is_active, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS service_photos (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    service_id BIGINT UNSIGNED NOT NULL,
+    image_url VARCHAR(500) NOT NULL,
+    alt_text VARCHAR(255) NULL,
+    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_service_photos_service
+        FOREIGN KEY (service_id) REFERENCES services (id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    KEY idx_service_photos_service_sort (service_id, is_primary, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS bookings (
@@ -108,12 +125,12 @@ CREATE TABLE IF NOT EXISTS menu_items (
     KEY idx_menu_items_search (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO services (name, description, price, duration_minutes, image_url, is_active, sort_order)
+INSERT INTO services (name, description, price, price_unit, duration_minutes, image_url, is_active, sort_order)
 VALUES
-    ('Басейн', 'Відпочинок у басейні серед гір.', 150.00, 60, '/static/img/vodogray.png', TRUE, 10),
-    ('Чани', 'Теплі чани для релаксу після прогулянки.', 180.00, 60, '/static/img/vodogray.png', TRUE, 20),
-    ('Баня', 'Класична баня для відновлення сил.', 50.00, 60, '/static/img/vodogray.png', TRUE, 30),
-    ('Більярд', 'Більярд для вечірнього відпочинку.', 360.00, 60, '/static/img/vodogray.png', TRUE, 40)
+    ('Басейн', 'Відпочинок у басейні серед гір.', 150.00, 'год', 60, '/static/img/vodogray.png', TRUE, 10),
+    ('Чани', 'Теплі чани для релаксу після прогулянки.', 180.00, 'год', 60, '/static/img/vodogray.png', TRUE, 20),
+    ('Баня', 'Класична баня для відновлення сил.', 50.00, 'год', 60, '/static/img/vodogray.png', TRUE, 30),
+    ('Більярд', 'Більярд для вечірнього відпочинку.', 360.00, 'год', 60, '/static/img/vodogray.png', TRUE, 40)
 ON DUPLICATE KEY UPDATE
     name = VALUES(name);
 

@@ -1,0 +1,77 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Відпочинок{% endblock %}
+{% block title %}Послуги{% endblock %}
+
+{% block content %}
+<section class="admin-panel">
+    <div class="panel-head">
+        <h2>Керування послугами</h2>
+        <a class="admin-primary link-button" href="{{ url_for('admin_service_new') }}">Додати послугу</a>
+    </div>
+
+    <form class="filter-bar" method="get">
+        <label class="wide">
+            <span>Пошук</span>
+            <input name="q" value="{{ search or '' }}" placeholder="Чан, сауна, баня або опис">
+        </label>
+        <button type="submit" class="admin-primary">Знайти</button>
+    </form>
+
+    {% if services %}
+    <div class="table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Фото</th>
+                    <th>Послуга</th>
+                    <th>Ціна</th>
+                    <th>Тривалість</th>
+                    <th>Статус</th>
+                    <th>Порядок</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for service in services %}
+                <tr>
+                    <td>
+                        {% if service.image_url %}
+                        <img class="admin-thumb" src="{{ service.image_url }}" alt="{{ service.name }}">
+                        {% else %}
+                        <span class="thumb-empty">Без фото</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ service.name }}</strong>
+                        <small>{{ service.description or 'Без опису' }}</small>
+                    </td>
+                    <td>{{ '%.2f'|format(service.price) }} грн / {{ service.price_unit }}</td>
+                    <td>{{ service.duration_minutes }} хв</td>
+                    <td>
+                        <span class="status-badge {{ 'confirmed' if service.is_active else 'cancelled' }}">
+                            {{ 'активна' if service.is_active else 'прихована' }}
+                        </span>
+                    </td>
+                    <td>{{ service.sort_order }}</td>
+                    <td class="table-actions">
+                        <a class="table-action" href="{{ url_for('admin_service_edit', service_id=service.id) }}">Редагувати</a>
+                        {% if service.is_active %}
+                        <form method="post" action="{{ url_for('admin_service_deactivate', service_id=service.id) }}" onsubmit="return confirm('Вимкнути послугу на сайті та в боті?');">
+                            <button type="submit" class="danger-link">Вимкнути</button>
+                        </form>
+                        {% endif %}
+                        <form method="post" action="{{ url_for('admin_service_delete', service_id=service.id) }}" onsubmit="return confirm('Видалити послугу? Якщо є бронювання, послугу буде вимкнено.');">
+                            <button type="submit" class="danger-link">Видалити</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="admin-empty">Послуг ще немає. Додайте першу послугу.</div>
+    {% endif %}
+</section>
+{% endblock %}

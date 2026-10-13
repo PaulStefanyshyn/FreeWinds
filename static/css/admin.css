@@ -70,7 +70,6 @@
 .danger-link,
 .link-button,
 .admin-secondary {
-    color: #f4efe6;
     min-height: 40px;
     display: inline-flex;
     align-items: center;
@@ -303,6 +302,17 @@
     border: 0;
     border-radius: 10px;
     font-weight: 900;
+}
+
+a.admin-primary,
+.panel-head a.admin-primary {
+    color: #fff;
+}
+
+.admin-primary.link-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .compact-form {

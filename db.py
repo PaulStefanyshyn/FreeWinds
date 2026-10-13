@@ -87,14 +87,19 @@ def serialize_client(client):
 
 
 def serialize_service(service):
+    photos = service.get('photos') if isinstance(service, dict) else None
     return {
         'id': service['id'],
         'name': service['name'],
         'description': service.get('description'),
         'price': float(service['price']) if service.get('price') is not None else None,
+        'price_unit': service.get('price_unit') or 'год',
         'duration_minutes': service.get('duration_minutes'),
+        'conditions': service.get('conditions'),
         'image_url': service.get('image_url'),
         'is_active': bool(service.get('is_active')),
+        'sort_order': service.get('sort_order') or 0,
+        'photos': photos or [],
     }
 
 
@@ -216,16 +221,272 @@ def upsert_client_from_telegram(user):
         return client
 
 
-def get_services():
-    services = fetch_all(
+def serialize_service_photo(photo):
+    return {
+        'id': photo['id'],
+        'service_id': photo['service_id'],
+        'image_url': photo['image_url'],
+        'alt_text': photo.get('alt_text'),
+        'is_primary': bool(photo.get('is_primary')),
+        'sort_order': photo.get('sort_order') or 0,
+        'created_at': serialize_datetime(photo.get('created_at')),
+    }
+
+
+def get_service_photos(service_id):
+    rows = fetch_all(
         """
-        SELECT id, name, description, price, duration_minutes, image_url, is_active
-        FROM services
-        WHERE is_active = 1
-        ORDER BY sort_order, id
-        """
+        SELECT *
+        FROM service_photos
+        WHERE service_id = %s
+        ORDER BY is_primary DESC, sort_order, id
+        """,
+        (service_id,),
     )
-    return [serialize_service(service) for service in services]
+    return [serialize_service_photo(row) for row in rows]
+
+
+def get_services(include_inactive=False, include_photos=False, search=None):
+    clauses = []
+    params = []
+    if not include_inactive:
+        clauses.append('is_active = 1')
+    if search:
+        like = f"%{search}%"
+        clauses.append('(name LIKE %s OR description LIKE %s OR conditions LIKE %s)')
+        params.extend([like, like, like])
+    where_clause = ' AND '.join(clauses) if clauses else '1=1'
+    services = fetch_all(
+        f"""
+        SELECT id, name, description, price, price_unit, duration_minutes, conditions,
+               image_url, is_active, sort_order, created_at, updated_at
+        FROM services
+        WHERE {where_clause}
+        ORDER BY sort_order, id
+        """,
+        tuple(params),
+    )
+    result = [serialize_service(service) for service in services]
+    if include_photos:
+        for service in result:
+            service['photos'] = get_service_photos(service['id'])
+            if not service.get('image_url') and service['photos']:
+                service['image_url'] = service['photos'][0]['image_url']
+    return result
+
+
+def get_service(service_id, include_photos=False):
+    row = fetch_one(
+        """
+        SELECT id, name, description, price, price_unit, duration_minutes, conditions,
+               image_url, is_active, sort_order, created_at, updated_at
+        FROM services
+        WHERE id = %s
+        """,
+        (service_id,),
+    )
+    if not row:
+        return None
+    service = serialize_service(row)
+    if include_photos:
+        service['photos'] = get_service_photos(service_id)
+        if not service.get('image_url') and service['photos']:
+            service['image_url'] = service['photos'][0]['image_url']
+    return service
+
+
+def save_service(data, service_id=None):
+    name = (data.get('name') or '').strip()
+    if not name:
+        raise ValueError('Вкажіть назву послуги')
+
+    price = data.get('price')
+    if price in (None, ''):
+        raise ValueError('Вкажіть ціну послуги')
+
+    duration_minutes = int(data.get('duration_minutes') or 60)
+    if duration_minutes <= 0:
+        raise ValueError('Тривалість повинна бути більшою за 0')
+
+    payload = {
+        'name': name,
+        'description': (data.get('description') or '').strip() or None,
+        'price': price,
+        'price_unit': (data.get('price_unit') or '').strip() or 'год',
+        'duration_minutes': duration_minutes,
+        'conditions': (data.get('conditions') or '').strip() or None,
+        'image_url': (data.get('image_url') or '').strip() or None,
+        'is_active': bool(data.get('is_active')),
+        'sort_order': int(data.get('sort_order') or 0),
+    }
+
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        if service_id:
+            cursor.execute(
+                """
+                UPDATE services
+                SET name = %(name)s,
+                    description = %(description)s,
+                    price = %(price)s,
+                    price_unit = %(price_unit)s,
+                    duration_minutes = %(duration_minutes)s,
+                    conditions = %(conditions)s,
+                    image_url = %(image_url)s,
+                    is_active = %(is_active)s,
+                    sort_order = %(sort_order)s,
+                    updated_at = NOW()
+                WHERE id = %(service_id)s
+                """,
+                {**payload, 'service_id': service_id},
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO services (
+                    name, description, price, price_unit, duration_minutes, conditions,
+                    image_url, is_active, sort_order, created_at, updated_at
+                )
+                VALUES (
+                    %(name)s, %(description)s, %(price)s, %(price_unit)s,
+                    %(duration_minutes)s, %(conditions)s, %(image_url)s,
+                    %(is_active)s, %(sort_order)s, NOW(), NOW()
+                )
+                """,
+                payload,
+            )
+            service_id = cursor.lastrowid
+        connection.commit()
+    return get_service(service_id, include_photos=True)
+
+
+def set_service_active(service_id, is_active):
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            "UPDATE services SET is_active = %s, updated_at = NOW() WHERE id = %s",
+            (is_active, service_id),
+        )
+        connection.commit()
+        return cursor.rowcount > 0
+
+
+def delete_service(service_id):
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute('SELECT id FROM bookings WHERE service_id = %s LIMIT 1', (service_id,))
+        if cursor.fetchone():
+            cursor.execute('UPDATE services SET is_active = FALSE, updated_at = NOW() WHERE id = %s', (service_id,))
+            connection.commit()
+            return 'deactivated'
+        cursor.execute('DELETE FROM service_photos WHERE service_id = %s', (service_id,))
+        cursor.execute('DELETE FROM services WHERE id = %s', (service_id,))
+        connection.commit()
+        return 'deleted' if cursor.rowcount else None
+
+
+def add_service_photo(service_id, image_url, alt_text=None, sort_order=0):
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute('SELECT COUNT(*) AS count FROM service_photos WHERE service_id = %s', (service_id,))
+        count = cursor.fetchone()['count']
+        is_primary = count == 0
+        cursor.execute(
+            """
+            INSERT INTO service_photos (service_id, image_url, alt_text, is_primary, sort_order, created_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+            """,
+            (service_id, image_url, alt_text or None, is_primary, sort_order),
+        )
+        if is_primary:
+            cursor.execute(
+                'UPDATE services SET image_url = %s, updated_at = NOW() WHERE id = %s',
+                (image_url, service_id),
+            )
+        connection.commit()
+
+
+def set_service_primary_photo(service_id, photo_id):
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute(
+            'SELECT image_url FROM service_photos WHERE id = %s AND service_id = %s',
+            (photo_id, service_id),
+        )
+        photo = cursor.fetchone()
+        if not photo:
+            connection.rollback()
+            return False
+        cursor.execute('UPDATE service_photos SET is_primary = FALSE WHERE service_id = %s', (service_id,))
+        cursor.execute(
+            'UPDATE service_photos SET is_primary = TRUE WHERE id = %s AND service_id = %s',
+            (photo_id, service_id),
+        )
+        cursor.execute(
+            'UPDATE services SET image_url = %s, updated_at = NOW() WHERE id = %s',
+            (photo['image_url'], service_id),
+        )
+        connection.commit()
+        return True
+
+
+def delete_service_photo(service_id, photo_id):
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute('SELECT * FROM service_photos WHERE id = %s AND service_id = %s', (photo_id, service_id))
+        photo = cursor.fetchone()
+        if not photo:
+            return None
+        cursor.execute('DELETE FROM service_photos WHERE id = %s AND service_id = %s', (photo_id, service_id))
+        if photo.get('is_primary'):
+            cursor.execute(
+                """
+                SELECT id, image_url
+                FROM service_photos
+                WHERE service_id = %s
+                ORDER BY sort_order, id
+                LIMIT 1
+                """,
+                (service_id,),
+            )
+            next_photo = cursor.fetchone()
+            if next_photo:
+                cursor.execute('UPDATE service_photos SET is_primary = TRUE WHERE id = %s', (next_photo['id'],))
+                cursor.execute(
+                    'UPDATE services SET image_url = %s, updated_at = NOW() WHERE id = %s',
+                    (next_photo['image_url'], service_id),
+                )
+            else:
+                cursor.execute('UPDATE services SET image_url = NULL, updated_at = NOW() WHERE id = %s', (service_id,))
+        connection.commit()
+        return serialize_service_photo(photo)
+
+
+def update_service_photo_order(service_id, photo_orders):
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        for photo_id, sort_order in photo_orders:
+            cursor.execute(
+                'UPDATE service_photos SET sort_order = %s WHERE id = %s AND service_id = %s',
+                (sort_order, photo_id, service_id),
+            )
+        connection.commit()
+
+
+def get_client_room_bookings_by_telegram(telegram_user_id):
+    if not telegram_user_id:
+        return []
+    rows = fetch_all(
+        """
+        SELECT rb.*, r.name AS room_name, r.price
+        FROM room_bookings rb
+        JOIN rooms r ON r.id = rb.room_id
+        WHERE rb.telegram_user_id = %s
+        ORDER BY rb.check_in DESC, rb.created_at DESC
+        """,
+        (telegram_user_id,),
+    )
+    return [serialize_room_booking(row) for row in rows]
 
 
 def get_client_bookings(client_id):

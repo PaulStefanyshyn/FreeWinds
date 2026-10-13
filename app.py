@@ -42,6 +42,7 @@ from db import (
     IntegrityError,
     add_banner,
     add_room_photo,
+    add_service_photo,
     cancel_booking,
     create_admin_user,
     create_booking,
@@ -49,6 +50,8 @@ from db import (
     delete_banner,
     delete_room,
     delete_room_photo,
+    delete_service,
+    delete_service_photo,
     get_admin_booking,
     get_admin_bookings,
     get_admin_by_id,
@@ -71,15 +74,19 @@ from db import (
     get_room,
     get_room_booking,
     get_room_bookings,
+    get_service,
     get_site_setting,
     get_services,
     mark_admin_login,
     save_room,
     save_room_booking,
+    save_service,
     link_room_booking_to_telegram,
     mark_room_booking_admin_notified,
     mark_room_booking_client_notified,
     set_room_primary_photo,
+    set_service_active,
+    set_service_primary_photo,
     set_site_setting,
     save_menu_category,
     save_menu_item,
@@ -90,6 +97,7 @@ from db import (
     update_banner,
     update_room_booking_status,
     update_room_photo_order,
+    update_service_photo_order,
     upsert_client_from_telegram,
 )
 from notifications import (
@@ -107,6 +115,7 @@ UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'menu')
 ROOM_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'rooms')
 BANNER_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'banners')
 SITE_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'site')
+SERVICE_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'services')
 ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
 ALLOWED_IMAGE_MIMES = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
 
@@ -166,6 +175,10 @@ def save_uploaded_menu_image(file_storage):
     stored_name = f"{stem[:42]}-{int(time.time())}{ext.lower()}"
     file_storage.save(os.path.join(UPLOAD_FOLDER, stored_name))
     return f"/static/uploads/menu/{stored_name}"
+
+
+def save_uploaded_service_image(file_storage):
+    return save_uploaded_image(file_storage, SERVICE_UPLOAD_FOLDER, '/static/uploads/services')
 
 
 def save_uploaded_image(file_storage, upload_folder, url_prefix):
@@ -728,6 +741,126 @@ def admin_booking_update_status(booking_id):
 
     flash('Статус бронювання оновлено.', 'success')
     return redirect(url_for('admin_booking_detail', booking_id=booking_id))
+
+
+@app.get('/admin/services')
+@admin_required
+def admin_services():
+    search = request.args.get('q', '').strip()
+    services = get_services(include_inactive=True, include_photos=True, search=search or None)
+    return render_template('admin/services.html', services=services, search=search)
+
+
+@app.route('/admin/services/new', methods=['GET', 'POST'])
+@admin_required
+def admin_service_new():
+    return handle_service_form()
+
+
+@app.route('/admin/services/<int:service_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def admin_service_edit(service_id):
+    return handle_service_form(service_id)
+
+
+def handle_service_form(service_id=None):
+    service = get_service(service_id, include_photos=True) if service_id else None
+    if service_id and not service:
+        flash('Послугу не знайдено.', 'error')
+        return redirect(url_for('admin_services'))
+
+    if request.method == 'POST':
+        try:
+            image_url = service['image_url'] if service else ''
+            cover_upload = save_uploaded_service_image(request.files.get('cover_image'))
+            if cover_upload:
+                image_url = cover_upload
+            elif request.form.get('remove_cover'):
+                image_url = ''
+
+            payload = {
+                'name': request.form.get('name'),
+                'description': request.form.get('description'),
+                'price': request.form.get('price'),
+                'price_unit': request.form.get('price_unit'),
+                'duration_minutes': request.form.get('duration_minutes'),
+                'conditions': request.form.get('conditions'),
+                'image_url': image_url,
+                'is_active': bool_from_form('is_active', default=False),
+                'sort_order': request.form.get('sort_order'),
+            }
+            saved_service = save_service(payload, service_id=service_id)
+            files = request.files.getlist('photos')
+            for index, image in enumerate(files):
+                photo_url = save_uploaded_service_image(image)
+                if photo_url:
+                    add_service_photo(saved_service['id'], photo_url, alt_text=saved_service['name'], sort_order=index)
+            flash('Послугу збережено.', 'success')
+            return redirect(url_for('admin_service_edit', service_id=saved_service['id']))
+        except (ValueError, IntegrityError) as exc:
+            flash(str(exc), 'error')
+        except (DatabaseUnavailable, Error):
+            flash('Помилка бази даних під час збереження послуги.', 'error')
+
+    return render_template('admin/service_form.html', service=service)
+
+
+@app.post('/admin/services/<int:service_id>/deactivate')
+@admin_required
+def admin_service_deactivate(service_id):
+    if set_service_active(service_id, False):
+        flash('Послугу вимкнено.', 'success')
+    else:
+        flash('Послугу не знайдено.', 'error')
+    return redirect(url_for('admin_services'))
+
+
+@app.post('/admin/services/<int:service_id>/delete')
+@admin_required
+def admin_service_delete(service_id):
+    result = delete_service(service_id)
+    if result == 'deactivated':
+        flash('Послуга має бронювання, тому її вимкнено замість видалення.', 'success')
+    elif result == 'deleted':
+        flash('Послугу видалено.', 'success')
+    else:
+        flash('Послугу не знайдено.', 'error')
+    return redirect(url_for('admin_services'))
+
+
+@app.post('/admin/services/<int:service_id>/photos/<int:photo_id>/primary')
+@admin_required
+def admin_service_photo_primary(service_id, photo_id):
+    if set_service_primary_photo(service_id, photo_id):
+        flash('Головне фото послуги оновлено.', 'success')
+    else:
+        flash('Фото не знайдено.', 'error')
+    return redirect(url_for('admin_service_edit', service_id=service_id))
+
+
+@app.post('/admin/services/<int:service_id>/photos/order')
+@admin_required
+def admin_service_photo_order(service_id):
+    orders = []
+    for key, value in request.form.items():
+        if key.startswith('sort_order_'):
+            try:
+                orders.append((int(key.replace('sort_order_', '')), int(value or 0)))
+            except ValueError:
+                continue
+    update_service_photo_order(service_id, orders)
+    flash('Порядок фотографій послуги оновлено.', 'success')
+    return redirect(url_for('admin_service_edit', service_id=service_id))
+
+
+@app.post('/admin/services/<int:service_id>/photos/<int:photo_id>/delete')
+@admin_required
+def admin_service_photo_delete(service_id, photo_id):
+    if delete_service_photo(service_id, photo_id):
+        flash('Фото видалено з послуги.', 'success')
+    else:
+        flash('Фото не знайдено.', 'error')
+    return redirect(url_for('admin_service_edit', service_id=service_id))
 
 
 @app.get('/admin/menu')
