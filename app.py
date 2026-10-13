@@ -80,7 +80,7 @@ from notifications import send_booking_notification
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
-app.config['MAX_CONTENT_LENGTH'] = 6 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'menu')
 ROOM_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'rooms')
