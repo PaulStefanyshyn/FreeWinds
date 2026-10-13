@@ -70,6 +70,7 @@
 .danger-link,
 .link-button,
 .admin-secondary {
+    color: #f4efe6;
     min-height: 40px;
     display: inline-flex;
     align-items: center;
