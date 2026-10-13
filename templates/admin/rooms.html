@@ -1,0 +1,60 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Проживання{% endblock %}
+{% block title %}Номери{% endblock %}
+
+{% block content %}
+<section class="admin-panel">
+    <div class="panel-head">
+        <h2>Керування номерами</h2>
+        <a href="{{ url_for('admin_room_new') }}">Додати номер</a>
+    </div>
+
+    <form class="filter-bar" method="get">
+        <label class="wide">
+            <span>Пошук</span>
+            <input name="q" value="{{ search or '' }}" placeholder="Назва, категорія або опис">
+        </label>
+        <button type="submit" class="admin-primary">Знайти</button>
+    </form>
+
+    {% if rooms %}
+    <div class="table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Фото</th>
+                    <th>Номер</th>
+                    <th>Ціна</th>
+                    <th>Гості</th>
+                    <th>Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for room in rooms %}
+                <tr>
+                    <td><img class="admin-thumb" src="{{ room.primary_photo_url }}" alt="{{ room.name }}"></td>
+                    <td>
+                        <strong>{{ room.name }}</strong>
+                        <small>{{ room.category or 'Без категорії' }}</small>
+                    </td>
+                    <td>{{ room.price }} грн</td>
+                    <td>{{ room.guests_count }}</td>
+                    <td><span class="status-badge {{ 'confirmed' if room.is_active else 'cancelled' }}">{{ 'Активний' if room.is_active else 'Вимкнений' }}</span></td>
+                    <td class="table-actions">
+                        <a class="table-action" href="{{ url_for('admin_room_edit', room_id=room.id) }}">Редагувати</a>
+                        <form method="post" action="{{ url_for('admin_room_delete', room_id=room.id) }}" onsubmit="return confirm('Видалити номер? Якщо є активні бронювання, номер буде вимкнено.');">
+                            <button type="submit" class="danger-link">Видалити</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="admin-empty">Номери ще не додані.</div>
+    {% endif %}
+</section>
+{% endblock %}

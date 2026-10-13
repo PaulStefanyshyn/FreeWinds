@@ -42,13 +42,23 @@
     text-transform: uppercase;
 }
 
+.site-logo-img,
 .triangle-container {
     width: 44px;
     height: 44px;
+    flex: 0 0 44px;
+    border-radius: 50%;
+}
+
+.site-logo-img {
+    object-fit: cover;
+    border: 2px solid rgba(49, 95, 119, 0.14);
+    box-shadow: 0 10px 20px rgba(49, 95, 119, 0.18);
+}
+
+.triangle-container {
     display: grid;
     place-items: center;
-    flex: 0 0 44px;
-    border-radius: 16px;
     background: linear-gradient(145deg, var(--color-primary), #4f7f96);
     box-shadow: 0 10px 20px rgba(49, 95, 119, 0.22);
 }
@@ -321,6 +331,7 @@
         border-radius: 26px;
     }
 
+    .menu-brand .site-logo-img,
     .menu-brand .triangle-container {
         width: 40px;
         height: 40px;

@@ -1,28 +1,28 @@
 {% extends "admin/base.html" %}
 
-{% block eyebrow %}Overview{% endblock %}
-{% block title %}Dashboard{% endblock %}
+{% block eyebrow %}Огляд{% endblock %}
+{% block title %}Панель керування{% endblock %}
 
 {% block content %}
 <div class="metric-grid">
     <article class="metric-card">
-        <span>Today bookings</span>
+        <span>Бронювань сьогодні</span>
         <strong>{{ summary.today_bookings }}</strong>
     </article>
     <article class="metric-card">
-        <span>Upcoming</span>
+        <span>Майбутні</span>
         <strong>{{ summary.upcoming_bookings }}</strong>
     </article>
     <article class="metric-card">
-        <span>Clients</span>
+        <span>Клієнти</span>
         <strong>{{ summary.clients_count }}</strong>
     </article>
     <article class="metric-card">
-        <span>Menu items</span>
+        <span>Страви меню</span>
         <strong>{{ summary.menu_items_count }}</strong>
     </article>
     <article class="metric-card warning">
-        <span>Pending</span>
+        <span>Очікують</span>
         <strong>{{ summary.pending_bookings }}</strong>
     </article>
 </div>

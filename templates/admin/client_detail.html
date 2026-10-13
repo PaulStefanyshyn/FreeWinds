@@ -1,6 +1,6 @@
 {% extends "admin/base.html" %}
 
-{% block eyebrow %}Client #{{ client.id }}{% endblock %}
+{% block eyebrow %}Клієнт #{{ client.id }}{% endblock %}
 {% block title %}{{ client.display_name }}{% endblock %}
 
 {% block content %}
@@ -17,15 +17,15 @@
             <div><dt>Мова</dt><dd>{{ client.language_code or '-' }}</dd></div>
             <div><dt>Телефон</dt><dd>{{ client.phone or '-' }}</dd></div>
             <div><dt>Email</dt><dd>{{ client.email or '-' }}</dd></div>
-            <div><dt>Status</dt><dd>{{ client.status }}</dd></div>
-            <div><dt>Created</dt><dd>{{ client.created_at }}</dd></div>
-            <div><dt>Last seen</dt><dd>{{ client.last_seen or '-' }}</dd></div>
+            <div><dt>Статус</dt><dd>{{ client.status }}</dd></div>
+            <div><dt>Створено</dt><dd>{{ client.created_at }}</dd></div>
+            <div><dt>Остання активність</dt><dd>{{ client.last_seen or '-' }}</dd></div>
         </dl>
     </section>
 
     <section class="admin-panel">
         <div class="panel-head">
-            <h2>Upcoming</h2>
+            <h2>Майбутні бронювання</h2>
         </div>
         {% set bookings = client.upcoming_bookings %}
         {% include "admin/partials/booking_table.html" with context %}
@@ -34,7 +34,7 @@
 
 <section class="admin-panel">
     <div class="panel-head">
-        <h2>Booking history</h2>
+        <h2>Історія бронювань</h2>
     </div>
     {% set bookings = client.bookings %}
     {% include "admin/partials/booking_table.html" with context %}

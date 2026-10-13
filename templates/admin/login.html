@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FreeWinds Admin Login</title>
+    <title>Вхід до адмінпанелі FreeWinds</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,13 +16,13 @@
             <span>FW</span>
             <div>
                 <strong>FreeWinds</strong>
-                <small>Admin panel</small>
+                <small>Адмінпанель</small>
             </div>
         </div>
         <div class="login-title">
-            <p class="eyebrow">Secure area</p>
+            <p class="eyebrow">Захищена зона</p>
             <h1>Вхід адміністратора</h1>
-            <p>Використовуйте admin credentials, створені через CLI або `.env` bootstrap.</p>
+            <p>Використовуйте облікові дані адміністратора, створені через CLI або `.env`.</p>
         </div>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -37,14 +37,14 @@
 
         <form method="post" class="admin-form">
             <label>
-                <span>Username</span>
+                <span>Логін</span>
                 <input name="username" autocomplete="username" required>
             </label>
             <label>
-                <span>Password</span>
+                <span>Пароль</span>
                 <input name="password" type="password" autocomplete="current-password" required>
             </label>
-            <button type="submit" class="admin-primary">Login</button>
+            <button type="submit" class="admin-primary">Увійти</button>
         </form>
     </main>
 </body>

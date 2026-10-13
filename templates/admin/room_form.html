@@ -1,0 +1,111 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Проживання{% endblock %}
+{% block title %}{{ 'Редагувати номер' if room else 'Новий номер' }}{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="admin-panel admin-form wide-form">
+    <div class="panel-head">
+        <h2>{{ room.name if room else 'Новий номер' }}</h2>
+        <a href="{{ url_for('admin_rooms') }}">До списку номерів</a>
+    </div>
+
+    <div class="form-grid">
+        <label>
+            <span>Назва</span>
+            <input name="name" value="{{ room.name if room else '' }}" required>
+        </label>
+        <label>
+            <span>Категорія</span>
+            <input name="category" value="{{ room.category if room else '' }}" placeholder="Котедж, люкс, стандарт">
+        </label>
+        <label>
+            <span>Ціна за ніч, грн</span>
+            <input name="price" type="number" min="0" step="0.01" value="{{ room.price if room else '' }}" required>
+        </label>
+        <label>
+            <span>Кількість гостей</span>
+            <input name="guests_count" type="number" min="1" value="{{ room.guests_count if room else 1 }}" required>
+        </label>
+        <label>
+            <span>Площа</span>
+            <input name="area" value="{{ room.area if room else '' }}" placeholder="25 м²">
+        </label>
+        <label>
+            <span>Спальні місця</span>
+            <input name="sleeping_places" value="{{ room.sleeping_places if room else '' }}" placeholder="1 спальня">
+        </label>
+        <label>
+            <span>Порядок</span>
+            <input name="sort_order" type="number" value="{{ room.sort_order if room else 0 }}">
+        </label>
+        <label>
+            <span>Додати фотографії</span>
+            <input name="photos" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple>
+        </label>
+        <label class="full">
+            <span>Опис</span>
+            <textarea name="description" rows="4">{{ room.description if room else '' }}</textarea>
+        </label>
+        <label class="full">
+            <span>Теги, кожен з нового рядка</span>
+            <textarea name="tags" rows="3">{{ room.tags if room else '' }}</textarea>
+        </label>
+        <label class="full">
+            <span>Характеристики та зручності, кожна з нового рядка</span>
+            <textarea name="amenities" rows="5">{{ room.amenities if room else '' }}</textarea>
+        </label>
+    </div>
+
+    <label class="check-row">
+        <input type="checkbox" name="is_active" value="1" {{ 'checked' if not room or room.is_active else '' }}>
+        <span>Показувати номер на сайті</span>
+    </label>
+
+    <div class="form-actions">
+        <button type="submit" class="admin-primary">Зберегти номер</button>
+        <a class="admin-secondary" href="{{ url_for('admin_rooms') }}">Скасувати</a>
+    </div>
+</form>
+
+{% if room %}
+<section class="admin-panel">
+    <div class="panel-head">
+        <h2>Фотографії номера</h2>
+        <span class="muted">Головне фото показується першим</span>
+    </div>
+
+    {% if room.photos %}
+    <form method="post" action="{{ url_for('admin_room_photo_order', room_id=room.id) }}" class="photo-grid">
+        {% for photo in room.photos %}
+        <article class="photo-card">
+            <img src="{{ photo.image_url }}" alt="{{ photo.alt_text or room.name }}">
+            <label>
+                <span>Порядок</span>
+                <input type="number" name="sort_order_{{ photo.id }}" value="{{ photo.sort_order }}">
+            </label>
+            <div class="table-actions">
+                {% if photo.is_primary %}
+                <span class="status-badge confirmed">Головне</span>
+                {% else %}
+                <button form="primary-{{ photo.id }}" type="submit" class="admin-secondary">Головне</button>
+                {% endif %}
+                <button form="delete-photo-{{ photo.id }}" type="submit" class="danger-link" onclick="return confirm('Видалити це фото з номера?');">Видалити</button>
+            </div>
+        </article>
+        {% endfor %}
+        <div class="form-actions full">
+            <button type="submit" class="admin-primary">Оновити порядок</button>
+        </div>
+    </form>
+
+    {% for photo in room.photos %}
+    <form id="primary-{{ photo.id }}" method="post" action="{{ url_for('admin_room_photo_primary', room_id=room.id, photo_id=photo.id) }}"></form>
+    <form id="delete-photo-{{ photo.id }}" method="post" action="{{ url_for('admin_room_photo_delete', room_id=room.id, photo_id=photo.id) }}"></form>
+    {% endfor %}
+    {% else %}
+    <div class="admin-empty">У цього номера ще немає фотографій.</div>
+    {% endif %}
+</section>
+{% endif %}
+{% endblock %}

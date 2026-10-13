@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
 
-{% block eyebrow %}Restaurant{% endblock %}
-{% block title %}Categories{% endblock %}
+{% block eyebrow %}Ресторан{% endblock %}
+{% block title %}Категорії{% endblock %}
 
 {% block content %}
 <div class="admin-grid two uneven">
@@ -17,12 +17,12 @@
                 <input name="sort_order" type="number" value="{{ category.sort_order }}">
                 <label class="check-row compact">
                     <input type="checkbox" name="is_active" value="1" {{ 'checked' if category.is_active else '' }}>
-                    <span>Active</span>
+                    <span>Активна</span>
                 </label>
-                <span class="muted">{{ category.items_count }} items</span>
-                <button type="submit" class="admin-secondary">Save</button>
+                <span class="muted">{{ category.items_count }} страв</span>
+                <button type="submit" class="admin-secondary">Зберегти</button>
                 {% if not category.items_count and category.is_active %}
-                <button form="deactivate-category-{{ category.id }}" type="submit" class="danger-link">Deactivate</button>
+                <button form="deactivate-category-{{ category.id }}" type="submit" class="danger-link">Деактивувати</button>
                 {% endif %}
             </form>
             <form id="deactivate-category-{{ category.id }}" method="post" action="{{ url_for('admin_category_deactivate', category_id=category.id) }}" onsubmit="return confirm('Деактивувати категорію?');"></form>
@@ -48,9 +48,9 @@
             </label>
             <label class="check-row">
                 <input type="checkbox" name="is_active" value="1" checked>
-                <span>Active</span>
+                <span>Активна</span>
             </label>
-            <button type="submit" class="admin-primary">Create category</button>
+            <button type="submit" class="admin-primary">Створити категорію</button>
         </form>
     </section>
 </div>

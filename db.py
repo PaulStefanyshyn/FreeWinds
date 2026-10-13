@@ -13,6 +13,12 @@ except ImportError:
 
 
 BOOKING_STATUSES = ('pending', 'confirmed', 'cancelled', 'completed')
+STATUS_LABELS = {
+    'pending': 'Очікує',
+    'confirmed': 'Підтверджено',
+    'cancelled': 'Скасовано',
+    'completed': 'Завершено',
+}
 DEFAULT_SLOTS = ('10:00', '12:00', '14:00', '16:00', '18:00', '20:00')
 
 
@@ -748,6 +754,480 @@ def set_menu_item_active(item_id, is_active):
         )
         connection.commit()
         return cursor.rowcount > 0
+
+
+def split_text_list(value):
+    if not value:
+        return []
+    return [item.strip() for item in value.replace('\r', '').split('\n') if item.strip()]
+
+
+def serialize_room_photo(photo):
+    return {
+        'id': photo['id'],
+        'room_id': photo['room_id'],
+        'image_url': photo['image_url'],
+        'alt_text': photo.get('alt_text'),
+        'is_primary': bool(photo.get('is_primary')),
+        'sort_order': photo.get('sort_order') or 0,
+        'created_at': serialize_datetime(photo.get('created_at')),
+    }
+
+
+def get_room_photos(room_id):
+    rows = fetch_all(
+        """
+        SELECT *
+        FROM room_photos
+        WHERE room_id = %s
+        ORDER BY is_primary DESC, sort_order, id
+        """,
+        (room_id,),
+    )
+    return [serialize_room_photo(row) for row in rows]
+
+
+def serialize_room(room, include_photos=False):
+    if not room:
+        return None
+    photo_url = room.get('primary_photo_url') or room.get('image_url') or '/static/img/vodogray.png'
+    data = {
+        'id': room['id'],
+        'name': room['name'],
+        'category': room.get('category'),
+        'description': room.get('description'),
+        'price': float(room['price']) if room.get('price') is not None else None,
+        'guests_count': room.get('guests_count'),
+        'area': room.get('area'),
+        'sleeping_places': room.get('sleeping_places'),
+        'tags': room.get('tags') or '',
+        'amenities': room.get('amenities') or '',
+        'tags_list': split_text_list(room.get('tags')),
+        'amenities_list': split_text_list(room.get('amenities')),
+        'is_active': bool(room.get('is_active')),
+        'sort_order': room.get('sort_order') or 0,
+        'primary_photo_url': photo_url,
+        'created_at': serialize_datetime(room.get('created_at')),
+        'updated_at': serialize_datetime(room.get('updated_at')),
+    }
+    if include_photos:
+        data['photos'] = get_room_photos(room['id'])
+    return data
+
+
+def room_base_query(where_clause='1=1'):
+    return f"""
+        SELECT r.*,
+               (
+                   SELECT rp.image_url
+                   FROM room_photos rp
+                   WHERE rp.room_id = r.id
+                   ORDER BY rp.is_primary DESC, rp.sort_order, rp.id
+                   LIMIT 1
+               ) AS primary_photo_url
+        FROM rooms r
+        WHERE {where_clause}
+    """
+
+
+def room_has_overlap(room_id, check_in, check_out, exclude_booking_id=None):
+    params = [room_id, check_in, check_out]
+    clause = ''
+    if exclude_booking_id:
+        clause = 'AND id <> %s'
+        params.append(exclude_booking_id)
+    row = fetch_one(
+        f"""
+        SELECT id
+        FROM room_bookings
+        WHERE room_id = %s
+          AND status IN ('pending', 'confirmed')
+          AND check_in < %s
+          AND check_out > %s
+          {clause}
+        LIMIT 1
+        """,
+        tuple(params),
+    )
+    return bool(row)
+
+
+def get_admin_rooms(search=None, include_inactive=True):
+    clauses = []
+    params = []
+    if not include_inactive:
+        clauses.append('r.is_active = 1')
+    if search:
+        like = f"%{search}%"
+        clauses.append('(r.name LIKE %s OR r.category LIKE %s OR r.description LIKE %s)')
+        params.extend([like, like, like])
+    where_clause = ' AND '.join(clauses) if clauses else '1=1'
+    rows = fetch_all(
+        room_base_query(where_clause) + """
+        ORDER BY r.sort_order, r.name
+        """,
+        tuple(params),
+    )
+    return [serialize_room(row) for row in rows]
+
+
+def get_public_rooms(check_in=None, check_out=None):
+    rooms = get_admin_rooms(include_inactive=False)
+    if check_in and check_out:
+        return [
+            room for room in rooms
+            if not room_has_overlap(room['id'], check_in, check_out)
+        ]
+    return rooms
+
+
+def get_room(room_id, include_photos=False):
+    row = fetch_one(room_base_query('r.id = %s'), (room_id,))
+    return serialize_room(row, include_photos=include_photos) if row else None
+
+
+def save_room(data, room_id=None):
+    name = (data.get('name') or '').strip()
+    if not name:
+        raise ValueError('Назва номера обовʼязкова')
+    price = data.get('price')
+    if price in (None, ''):
+        raise ValueError('Вкажіть ціну номера')
+
+    payload = {
+        'name': name,
+        'category': (data.get('category') or '').strip() or None,
+        'description': (data.get('description') or '').strip() or None,
+        'price': price,
+        'guests_count': int(data.get('guests_count') or 1),
+        'area': (data.get('area') or '').strip() or None,
+        'sleeping_places': (data.get('sleeping_places') or '').strip() or None,
+        'tags': (data.get('tags') or '').strip() or None,
+        'amenities': (data.get('amenities') or '').strip() or None,
+        'is_active': bool(data.get('is_active')),
+        'sort_order': int(data.get('sort_order') or 0),
+    }
+
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        if room_id:
+            payload['id'] = room_id
+            cursor.execute(
+                """
+                UPDATE rooms
+                SET name = %(name)s,
+                    category = %(category)s,
+                    description = %(description)s,
+                    price = %(price)s,
+                    guests_count = %(guests_count)s,
+                    area = %(area)s,
+                    sleeping_places = %(sleeping_places)s,
+                    tags = %(tags)s,
+                    amenities = %(amenities)s,
+                    is_active = %(is_active)s,
+                    sort_order = %(sort_order)s,
+                    updated_at = NOW()
+                WHERE id = %(id)s
+                """,
+                payload,
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO rooms (
+                    name, category, description, price, guests_count, area,
+                    sleeping_places, tags, amenities, is_active, sort_order,
+                    created_at, updated_at
+                )
+                VALUES (
+                    %(name)s, %(category)s, %(description)s, %(price)s, %(guests_count)s,
+                    %(area)s, %(sleeping_places)s, %(tags)s, %(amenities)s,
+                    %(is_active)s, %(sort_order)s, NOW(), NOW()
+                )
+                """,
+                payload,
+            )
+            room_id = cursor.lastrowid
+        connection.commit()
+    return get_room(room_id, include_photos=True)
+
+
+def add_room_photo(room_id, image_url, alt_text='', sort_order=0):
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute('SELECT COUNT(*) AS count FROM room_photos WHERE room_id = %s', (room_id,))
+        count = cursor.fetchone()['count']
+        cursor.execute(
+            """
+            INSERT INTO room_photos (room_id, image_url, alt_text, is_primary, sort_order, created_at)
+            VALUES (%s, %s, %s, %s, %s, NOW())
+            """,
+            (room_id, image_url, alt_text or None, count == 0, sort_order),
+        )
+        connection.commit()
+
+
+def set_room_primary_photo(room_id, photo_id):
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        cursor.execute('UPDATE room_photos SET is_primary = FALSE WHERE room_id = %s', (room_id,))
+        cursor.execute(
+            'UPDATE room_photos SET is_primary = TRUE WHERE id = %s AND room_id = %s',
+            (photo_id, room_id),
+        )
+        connection.commit()
+        return cursor.rowcount > 0
+
+
+def delete_room_photo(room_id, photo_id):
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute('SELECT * FROM room_photos WHERE id = %s AND room_id = %s', (photo_id, room_id))
+        photo = cursor.fetchone()
+        if not photo:
+            return None
+        cursor.execute('DELETE FROM room_photos WHERE id = %s AND room_id = %s', (photo_id, room_id))
+        if photo.get('is_primary'):
+            cursor.execute(
+                """
+                UPDATE room_photos
+                SET is_primary = TRUE
+                WHERE room_id = %s
+                ORDER BY sort_order, id
+                LIMIT 1
+                """,
+                (room_id,),
+            )
+        connection.commit()
+        return serialize_room_photo(photo)
+
+
+def update_room_photo_order(room_id, photo_orders):
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        for photo_id, sort_order in photo_orders:
+            cursor.execute(
+                'UPDATE room_photos SET sort_order = %s WHERE id = %s AND room_id = %s',
+                (sort_order, photo_id, room_id),
+            )
+        connection.commit()
+
+
+def delete_room(room_id):
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute('SELECT id FROM room_bookings WHERE room_id = %s LIMIT 1', (room_id,))
+        if cursor.fetchone():
+            cursor.execute('UPDATE rooms SET is_active = FALSE, updated_at = NOW() WHERE id = %s', (room_id,))
+            connection.commit()
+            return 'deactivated'
+        cursor.execute('DELETE FROM room_photos WHERE room_id = %s', (room_id,))
+        cursor.execute('DELETE FROM rooms WHERE id = %s', (room_id,))
+        connection.commit()
+        return 'deleted' if cursor.rowcount else None
+
+
+def serialize_room_booking(booking):
+    room = {
+        'id': booking['id'],
+        'room_id': booking['room_id'],
+        'room_name': booking.get('room_name'),
+        'guest_name': booking.get('guest_name'),
+        'guest_phone': booking.get('guest_phone'),
+        'guest_email': booking.get('guest_email'),
+        'check_in': booking['check_in'].isoformat(),
+        'check_out': booking['check_out'].isoformat(),
+        'status': booking['status'],
+        'status_label': STATUS_LABELS.get(booking['status'], booking['status']),
+        'comment': booking.get('comment'),
+        'created_at': serialize_datetime(booking.get('created_at')),
+        'updated_at': serialize_datetime(booking.get('updated_at')),
+    }
+    return room
+
+
+def get_room_bookings(status=None, room_id=None):
+    clauses = []
+    params = []
+    if status:
+        clauses.append('rb.status = %s')
+        params.append(status)
+    if room_id:
+        clauses.append('rb.room_id = %s')
+        params.append(room_id)
+    where_clause = ' AND '.join(clauses) if clauses else '1=1'
+    rows = fetch_all(
+        f"""
+        SELECT rb.*, r.name AS room_name
+        FROM room_bookings rb
+        JOIN rooms r ON r.id = rb.room_id
+        WHERE {where_clause}
+        ORDER BY rb.check_in DESC, rb.created_at DESC
+        """,
+        tuple(params),
+    )
+    return [serialize_room_booking(row) for row in rows]
+
+
+def get_room_booking(booking_id):
+    row = fetch_one(
+        """
+        SELECT rb.*, r.name AS room_name
+        FROM room_bookings rb
+        JOIN rooms r ON r.id = rb.room_id
+        WHERE rb.id = %s
+        """,
+        (booking_id,),
+    )
+    return serialize_room_booking(row) if row else None
+
+
+def save_room_booking(data, booking_id=None):
+    room_id = data.get('room_id')
+    if not room_id:
+        raise ValueError('Оберіть номер')
+    check_in = datetime.strptime(data.get('check_in'), '%Y-%m-%d').date()
+    check_out = datetime.strptime(data.get('check_out'), '%Y-%m-%d').date()
+    if check_out <= check_in:
+        raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
+    status = data.get('status') or 'confirmed'
+    if status not in BOOKING_STATUSES:
+        raise ValueError('Некоректний статус бронювання')
+    if status in ('pending', 'confirmed') and room_has_overlap(room_id, check_in, check_out, booking_id):
+        raise IntegrityError('Номер вже зайнятий на вибрані дати')
+
+    payload = {
+        'room_id': int(room_id),
+        'guest_name': (data.get('guest_name') or '').strip() or None,
+        'guest_phone': (data.get('guest_phone') or '').strip() or None,
+        'guest_email': (data.get('guest_email') or '').strip() or None,
+        'check_in': check_in,
+        'check_out': check_out,
+        'status': status,
+        'comment': (data.get('comment') or '').strip() or None,
+    }
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        if booking_id:
+            payload['id'] = booking_id
+            cursor.execute(
+                """
+                UPDATE room_bookings
+                SET room_id = %(room_id)s,
+                    guest_name = %(guest_name)s,
+                    guest_phone = %(guest_phone)s,
+                    guest_email = %(guest_email)s,
+                    check_in = %(check_in)s,
+                    check_out = %(check_out)s,
+                    status = %(status)s,
+                    comment = %(comment)s,
+                    updated_at = NOW()
+                WHERE id = %(id)s
+                """,
+                payload,
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO room_bookings (
+                    room_id, guest_name, guest_phone, guest_email,
+                    check_in, check_out, status, comment, created_at, updated_at
+                )
+                VALUES (
+                    %(room_id)s, %(guest_name)s, %(guest_phone)s, %(guest_email)s,
+                    %(check_in)s, %(check_out)s, %(status)s, %(comment)s, NOW(), NOW()
+                )
+                """,
+                payload,
+            )
+            booking_id = cursor.lastrowid
+        connection.commit()
+    return get_room_booking(booking_id)
+
+
+def get_site_setting(key, default=None):
+    row = fetch_one('SELECT setting_value FROM site_settings WHERE setting_key = %s', (key,))
+    return row['setting_value'] if row else default
+
+
+def set_site_setting(key, value):
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            INSERT INTO site_settings (setting_key, setting_value, updated_at)
+            VALUES (%s, %s, NOW())
+            ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), updated_at = NOW()
+            """,
+            (key, value),
+        )
+        connection.commit()
+
+
+def serialize_banner(row):
+    return {
+        'id': row['id'],
+        'image_url': row['image_url'],
+        'title': row.get('title'),
+        'is_active': bool(row.get('is_active')),
+        'sort_order': row.get('sort_order') or 0,
+        'created_at': serialize_datetime(row.get('created_at')),
+    }
+
+
+def get_banners(include_inactive=False):
+    where = '1=1' if include_inactive else 'is_active = TRUE'
+    rows = fetch_all(
+        f"""
+        SELECT *
+        FROM home_banners
+        WHERE {where}
+        ORDER BY sort_order, id
+        """
+    )
+    return [serialize_banner(row) for row in rows]
+
+
+def add_banner(image_url, title='', is_active=True, sort_order=0):
+    sort_order = int(sort_order or 0)
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            INSERT INTO home_banners (image_url, title, is_active, sort_order, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, NOW(), NOW())
+            """,
+            (image_url, title or None, is_active, sort_order),
+        )
+        connection.commit()
+
+
+def update_banner(banner_id, title='', is_active=True, sort_order=0):
+    sort_order = int(sort_order or 0)
+    with get_connection() as connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            UPDATE home_banners
+            SET title = %s, is_active = %s, sort_order = %s, updated_at = NOW()
+            WHERE id = %s
+            """,
+            (title or None, is_active, sort_order, banner_id),
+        )
+        connection.commit()
+        return cursor.rowcount > 0
+
+
+def delete_banner(banner_id):
+    with get_connection() as connection:
+        cursor = connection.cursor(dictionary=True)
+        cursor.execute('SELECT * FROM home_banners WHERE id = %s', (banner_id,))
+        banner = cursor.fetchone()
+        if not banner:
+            return None
+        cursor.execute('DELETE FROM home_banners WHERE id = %s', (banner_id,))
+        connection.commit()
+        return serialize_banner(banner)
 
 
 def get_admin_clients(search=None, limit=200):

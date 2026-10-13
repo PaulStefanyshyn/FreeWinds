@@ -7,9 +7,24 @@
 {% block content %}
 {% include 'header.html' %}
 
+{% if banners %}
+<section class="home-banners" aria-label="Актуальні пропозиції">
+    <div class="banner-track">
+        {% for banner in banners %}
+        <article class="home-banner {{ 'active' if loop.first else '' }}">
+            <img src="{{ banner.image_url }}" alt="{{ banner.title or 'Рекламний банер' }}">
+            {% if banner.title %}
+            <div class="banner-caption">{{ banner.title }}</div>
+            {% endif %}
+        </article>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
 <section class="home-hero">
     <div class="hero-media">
-        <img src="{{ url_for('static', filename='img/vodogray.png') }}" alt="Відпочинок у Вільних вітрах">
+        <img src="{{ hero_image_url }}" alt="Відпочинок у Вільних вітрах">
     </div>
     <div class="hero-content">
         <p class="eyebrow">Карпати · відпочинок · бронювання</p>
@@ -18,6 +33,7 @@
         <div class="hero-actions">
             <a class="btn btn-primary" href="/service">Забронювати</a>
             <a class="btn btn-secondary" href="/rooms">Переглянути номери</a>
+            <a class="btn btn-secondary" href="/contact">Контакти</a>
         </div>
     </div>
 </section>
@@ -27,16 +43,19 @@
         <span>01</span>
         <h2>Номери</h2>
         <p>Оберіть дати та подивіться доступні варіанти проживання.</p>
+        <strong>Наші номери</strong>
     </a>
     <a class="quick-card" href="/service">
         <span>02</span>
         <h2>Послуги</h2>
         <p>Басейн, чани, баня та інші послуги з швидким бронюванням.</p>
+        <strong>Послуги</strong>
     </a>
     <a class="quick-card" href="/contact">
         <span>03</span>
         <h2>Контакти</h2>
         <p>Маршрут, телефон та Instagram завжди під рукою.</p>
+        <strong>Забронювати</strong>
     </a>
 </section>
 
@@ -48,4 +67,20 @@
     </div>
     <a class="btn btn-primary" href="/service">Почати</a>
 </section>
+{% endblock %}
+
+{% block scripts %}
+{% if banners|length > 1 %}
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const slides = Array.from(document.querySelectorAll(".home-banner"));
+        let current = 0;
+        setInterval(() => {
+            slides[current].classList.remove("active");
+            current = (current + 1) % slides.length;
+            slides[current].classList.add("active");
+        }, 4500);
+    });
+</script>
+{% endif %}
 {% endblock %}

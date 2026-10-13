@@ -21,11 +21,11 @@
                 </td>
                 <td>
                     <strong>{{ booking.client_name }}</strong>
-                    <small>{{ '@' ~ booking.username if booking.username else booking.phone or 'No contact' }}</small>
+                    <small>{{ '@' ~ booking.username if booking.username else booking.phone or 'Без контакту' }}</small>
                 </td>
                 <td>{{ booking.service_name }}</td>
-                <td><span class="status-badge {{ booking.status }}">{{ booking.status }}</span></td>
-                <td><a class="table-action" href="{{ url_for('admin_booking_detail', booking_id=booking.id) }}">Open</a></td>
+                <td><span class="status-badge {{ booking.status }}">{{ status_labels.get(booking.status, booking.status) if status_labels is defined else booking.status }}</span></td>
+                <td><a class="table-action" href="{{ url_for('admin_booking_detail', booking_id=booking.id) }}">Відкрити</a></td>
             </tr>
             {% endfor %}
         </tbody>

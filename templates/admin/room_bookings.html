@@ -1,0 +1,63 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Проживання{% endblock %}
+{% block title %}Бронювання номерів{% endblock %}
+
+{% block content %}
+<section class="admin-panel">
+    <div class="panel-head">
+        <h2>Зайнятість номерів</h2>
+        <a href="{{ url_for('admin_room_booking_new') }}">Створити бронювання</a>
+    </div>
+
+    <form class="filter-bar" method="get">
+        <label>
+            <span>Статус</span>
+            <select name="status">
+                <option value="">Усі</option>
+                {% for status in statuses %}
+                <option value="{{ status }}" {{ 'selected' if selected_status == status else '' }}>{{ status_labels.get(status, status) }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <button type="submit" class="admin-primary">Фільтрувати</button>
+    </form>
+
+    {% if bookings %}
+    <div class="table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Номер</th>
+                    <th>Дати</th>
+                    <th>Гість</th>
+                    <th>Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for booking in bookings %}
+                <tr>
+                    <td>#{{ booking.id }}</td>
+                    <td>{{ booking.room_name }}</td>
+                    <td>
+                        <strong>{{ booking.check_in }}</strong>
+                        <small>до {{ booking.check_out }}</small>
+                    </td>
+                    <td>
+                        <strong>{{ booking.guest_name or 'Без імені' }}</strong>
+                        <small>{{ booking.guest_phone or booking.guest_email or 'Без контакту' }}</small>
+                    </td>
+                    <td><span class="status-badge {{ booking.status }}">{{ booking.status_label }}</span></td>
+                    <td><a class="table-action" href="{{ url_for('admin_room_booking_edit', booking_id=booking.id) }}">Редагувати</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="admin-empty">Бронювань номерів поки немає.</div>
+    {% endif %}
+</section>
+{% endblock %}

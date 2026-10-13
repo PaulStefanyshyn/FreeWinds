@@ -1,38 +1,38 @@
 {% extends "admin/base.html" %}
 
-{% block eyebrow %}Restaurant{% endblock %}
-{% block title %}Menu{% endblock %}
+{% block eyebrow %}Ресторан{% endblock %}
+{% block title %}Меню{% endblock %}
 
 {% block content %}
 <section class="admin-panel">
     <div class="panel-head">
         <h2>Страви</h2>
-        <a class="admin-primary link-button" href="{{ url_for('admin_menu_new') }}">Add dish</a>
+        <a class="admin-primary link-button" href="{{ url_for('admin_menu_new') }}">Додати страву</a>
     </div>
 
     <form class="filter-bar" method="get">
         <label>
-            <span>Category</span>
+            <span>Категорія</span>
             <select name="category_id">
-                <option value="">All</option>
+                <option value="">Усі</option>
                 {% for category in categories %}
                 <option value="{{ category.id }}" {{ 'selected' if filters.category_id == category.id else '' }}>{{ category.name }}</option>
                 {% endfor %}
             </select>
         </label>
         <label>
-            <span>Availability</span>
+            <span>Наявність</span>
             <select name="availability">
-                <option value="">All</option>
-                <option value="available" {{ 'selected' if filters.availability == 'available' else '' }}>Available</option>
-                <option value="unavailable" {{ 'selected' if filters.availability == 'unavailable' else '' }}>Unavailable</option>
+                <option value="">Усі</option>
+                <option value="available" {{ 'selected' if filters.availability == 'available' else '' }}>Доступні</option>
+                <option value="unavailable" {{ 'selected' if filters.availability == 'unavailable' else '' }}>Недоступні</option>
             </select>
         </label>
         <label class="wide">
-            <span>Search</span>
-            <input name="q" value="{{ filters.q or '' }}" placeholder="Dish, description, category">
+            <span>Пошук</span>
+            <input name="q" value="{{ filters.q or '' }}" placeholder="Страва, опис, категорія">
         </label>
-        <button type="submit" class="admin-primary">Filter</button>
+        <button type="submit" class="admin-primary">Фільтрувати</button>
     </form>
 
     {% if items %}
@@ -40,12 +40,12 @@
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th>Image</th>
-                    <th>Name</th>
-                    <th>Category</th>
-                    <th>Price</th>
-                    <th>Status</th>
-                    <th>Sort</th>
+                    <th>Зображення</th>
+                    <th>Назва</th>
+                    <th>Категорія</th>
+                    <th>Ціна</th>
+                    <th>Статус</th>
+                    <th>Порядок</th>
                     <th></th>
                 </tr>
             </thead>
@@ -56,26 +56,26 @@
                         {% if item.image_url %}
                         <img class="admin-thumb" src="{{ item.image_url }}" alt="{{ item.name }}">
                         {% else %}
-                        <span class="thumb-empty">No image</span>
+                        <span class="thumb-empty">Без фото</span>
                         {% endif %}
                     </td>
                     <td>
                         <strong>{{ item.name }}</strong>
-                        <small>{{ item.description or 'No description' }}</small>
+                        <small>{{ item.description or 'Без опису' }}</small>
                     </td>
                     <td>{{ item.category_name }}</td>
                     <td>{{ '%.2f'|format(item.price) }} грн</td>
                     <td>
                         <span class="status-badge {{ 'confirmed' if item.is_active and item.is_available else 'cancelled' }}">
-                            {{ 'active' if item.is_active and item.is_available else 'hidden' if not item.is_active else 'unavailable' }}
+                            {{ 'активна' if item.is_active and item.is_available else 'прихована' if not item.is_active else 'недоступна' }}
                         </span>
                     </td>
                     <td>{{ item.sort_order }}</td>
                     <td class="table-actions">
-                        <a class="table-action" href="{{ url_for('admin_menu_edit', item_id=item.id) }}">Edit</a>
+                        <a class="table-action" href="{{ url_for('admin_menu_edit', item_id=item.id) }}">Редагувати</a>
                         {% if item.is_active %}
                         <form method="post" action="{{ url_for('admin_menu_deactivate', item_id=item.id) }}" onsubmit="return confirm('Деактивувати страву?');">
-                            <button type="submit" class="danger-link">Deactivate</button>
+                            <button type="submit" class="danger-link">Деактивувати</button>
                         </form>
                         {% endif %}
                     </td>

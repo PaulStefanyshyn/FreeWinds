@@ -1,32 +1,32 @@
 {% extends "admin/base.html" %}
 
-{% block eyebrow %}System{% endblock %}
-{% block title %}Settings{% endblock %}
+{% block eyebrow %}Система{% endblock %}
+{% block title %}Налаштування{% endblock %}
 
 {% block content %}
 <section class="admin-panel detail-list">
     <div class="panel-head">
-        <h2>Configuration status</h2>
+        <h2>Стан конфігурації</h2>
     </div>
     <dl>
         <div>
-            <dt>Telegram bot token</dt>
-            <dd><span class="status-badge {{ 'confirmed' if settings.telegram_token_configured else 'cancelled' }}">{{ 'configured' if settings.telegram_token_configured else 'missing' }}</span></dd>
+            <dt>Токен Telegram-бота</dt>
+            <dd><span class="status-badge {{ 'confirmed' if settings.telegram_token_configured else 'cancelled' }}">{{ 'налаштовано' if settings.telegram_token_configured else 'відсутній' }}</span></dd>
         </div>
         <div>
-            <dt>Bookings group chat ID</dt>
-            <dd><span class="status-badge {{ 'confirmed' if settings.telegram_chat_configured else 'cancelled' }}">{{ 'configured' if settings.telegram_chat_configured else 'missing' }}</span></dd>
+            <dt>Chat ID для бронювань</dt>
+            <dd><span class="status-badge {{ 'confirmed' if settings.telegram_chat_configured else 'cancelled' }}">{{ 'налаштовано' if settings.telegram_chat_configured else 'відсутній' }}</span></dd>
         </div>
         <div>
-            <dt>Admin bootstrap env</dt>
-            <dd><span class="status-badge {{ 'confirmed' if settings.admin_username_configured else 'pending' }}">{{ 'configured' if settings.admin_username_configured else 'optional' }}</span></dd>
+            <dt>Початковий admin з `.env`</dt>
+            <dd><span class="status-badge {{ 'confirmed' if settings.admin_username_configured else 'pending' }}">{{ 'налаштовано' if settings.admin_username_configured else 'необовʼязково' }}</span></dd>
         </div>
     </dl>
 </section>
 
 <section class="admin-panel">
     <div class="panel-head">
-        <h2>Telegram group setup</h2>
+        <h2>Налаштування Telegram-групи</h2>
     </div>
     <ol class="instruction-list">
         <li>Додайте поточного Telegram bot у групу для персоналу.</li>

@@ -1,8 +1,6 @@
 <header class="site-header">
     <a class="logo" href="/" aria-label="Вільні вітри">
-        <div class="triangle-container">
-            <div class="triangle"></div>
-        </div>
+        <img class="site-logo-img" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Вільні вітри">
         <div>
             <h2>Вільні вітри</h2>
             <p>hotel & spa</p>
@@ -23,9 +21,7 @@
 <nav class="site-menu" id="menu" aria-label="Головна навігація" tabindex="-1">
     <div class="menu-head">
         <a class="menu-brand" href="/" aria-label="Вільні вітри">
-            <div class="triangle-container">
-                <div class="triangle"></div>
-            </div>
+            <img class="site-logo-img" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Вільні вітри">
             <div>
                 <strong>Вільні вітри</strong>
                 <span>hotel & spa</span>

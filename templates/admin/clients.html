@@ -1,16 +1,16 @@
 {% extends "admin/base.html" %}
 
-{% block eyebrow %}Audience{% endblock %}
-{% block title %}Clients{% endblock %}
+{% block eyebrow %}Клієнти{% endblock %}
+{% block title %}Клієнти{% endblock %}
 
 {% block content %}
 <section class="admin-panel">
     <form class="filter-bar" method="get">
         <label class="wide">
-            <span>Search</span>
-            <input name="q" value="{{ search }}" placeholder="Name, username, Telegram ID, phone, email">
+            <span>Пошук</span>
+            <input name="q" value="{{ search }}" placeholder="Імʼя, username, Telegram ID, телефон, email">
         </label>
-        <button type="submit" class="admin-primary">Search</button>
+        <button type="submit" class="admin-primary">Знайти</button>
     </form>
 
     {% if clients %}
@@ -18,11 +18,11 @@
         <table class="admin-table">
             <thead>
                 <tr>
-                    <th>Client</th>
+                    <th>Клієнт</th>
                     <th>Telegram</th>
-                    <th>Contact</th>
-                    <th>Bookings</th>
-                    <th>Last seen</th>
+                    <th>Контакт</th>
+                    <th>Бронювання</th>
+                    <th>Остання активність</th>
                     <th></th>
                 </tr>
             </thead>
@@ -34,7 +34,7 @@
                         <small>ID {{ client.id }}</small>
                     </td>
                     <td>
-                        <strong>{{ '@' ~ client.username if client.username else 'No username' }}</strong>
+                        <strong>{{ '@' ~ client.username if client.username else 'Немає username' }}</strong>
                         <small>{{ client.telegram_user_id }}</small>
                     </td>
                     <td>
@@ -43,10 +43,10 @@
                     </td>
                     <td>
                         <strong>{{ client.bookings_count }}</strong>
-                        <small>{{ client.upcoming_count }} upcoming</small>
+                        <small>{{ client.upcoming_count }} майбутніх</small>
                     </td>
                     <td>{{ client.last_seen or '-' }}</td>
-                    <td><a class="table-action" href="{{ url_for('admin_client_detail', client_id=client.id) }}">Open</a></td>
+                    <td><a class="table-action" href="{{ url_for('admin_client_detail', client_id=client.id) }}">Відкрити</a></td>
                 </tr>
                 {% endfor %}
             </tbody>

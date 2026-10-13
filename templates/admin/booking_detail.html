@@ -1,14 +1,14 @@
 {% extends "admin/base.html" %}
 
-{% block eyebrow %}Booking #{{ booking.id }}{% endblock %}
-{% block title %}Booking details{% endblock %}
+{% block eyebrow %}Бронювання #{{ booking.id }}{% endblock %}
+{% block title %}Деталі бронювання{% endblock %}
 
 {% block content %}
 <div class="admin-grid two">
     <section class="admin-panel detail-list">
         <div class="panel-head">
             <h2>Бронювання</h2>
-            <span class="status-badge {{ booking.status }}">{{ booking.status }}</span>
+            <span class="status-badge {{ booking.status }}">{{ status_labels.get(booking.status, booking.status) }}</span>
         </div>
         <dl>
             <div><dt>Дата</dt><dd>{{ booking.booking_date }}</dd></div>
@@ -24,7 +24,7 @@
                 <span>Статус</span>
                 <select name="status">
                     {% for status in statuses %}
-                    <option value="{{ status }}" {{ 'selected' if booking.status == status else '' }}>{{ status }}</option>
+                    <option value="{{ status }}" {{ 'selected' if booking.status == status else '' }}>{{ status_labels.get(status, status) }}</option>
                     {% endfor %}
                 </select>
             </label>

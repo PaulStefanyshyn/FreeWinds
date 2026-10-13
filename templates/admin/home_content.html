@@ -1,0 +1,88 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Головна сторінка{% endblock %}
+{% block title %}Контент головної{% endblock %}
+
+{% block content %}
+<div class="admin-grid two">
+    <section class="admin-panel">
+        <div class="panel-head">
+            <h2>Головна фотографія</h2>
+        </div>
+        <div class="image-preview-row">
+            <img src="{{ hero_image_url }}" alt="Головна фотографія">
+            <span class="muted">{{ hero_image_url }}</span>
+        </div>
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('admin_home_hero_update') }}" class="admin-form">
+            <label>
+                <span>Нове фото</span>
+                <input type="file" name="hero_image" accept="image/png,image/jpeg,image/webp,image/gif" required>
+            </label>
+            <button type="submit" class="admin-primary">Оновити фото</button>
+        </form>
+    </section>
+
+    <section class="admin-panel">
+        <div class="panel-head">
+            <h2>Додати банер</h2>
+        </div>
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('admin_banner_create') }}" class="admin-form">
+            <label>
+                <span>Зображення банера</span>
+                <input type="file" name="banner_image" accept="image/png,image/jpeg,image/webp,image/gif" required>
+            </label>
+            <label>
+                <span>Підпис</span>
+                <input name="title" placeholder="Акція, подія або сезонна пропозиція">
+            </label>
+            <label>
+                <span>Порядок</span>
+                <input name="sort_order" type="number" value="0">
+            </label>
+            <label class="check-row">
+                <input type="checkbox" name="is_active" value="1" checked>
+                <span>Показувати банер</span>
+            </label>
+            <button type="submit" class="admin-primary">Додати банер</button>
+        </form>
+    </section>
+</div>
+
+<section class="admin-panel">
+    <div class="panel-head">
+        <h2>Рекламні банери</h2>
+    </div>
+    {% if banners %}
+    <div class="banner-admin-grid">
+        {% for banner in banners %}
+        <article class="photo-card">
+            <img src="{{ banner.image_url }}" alt="{{ banner.title or 'Банер' }}">
+            <form method="post" action="{{ url_for('admin_banner_update', banner_id=banner.id) }}" class="admin-form compact-form">
+                <label>
+                    <span>Підпис</span>
+                    <input name="title" value="{{ banner.title or '' }}">
+                </label>
+                <label>
+                    <span>Порядок</span>
+                    <input name="sort_order" type="number" value="{{ banner.sort_order }}">
+                </label>
+                <label class="check-row">
+                    <input type="checkbox" name="is_active" value="1" {{ 'checked' if banner.is_active else '' }}>
+                    <span>Активний</span>
+                </label>
+                <div class="table-actions">
+                    <button type="submit" class="admin-primary">Зберегти</button>
+                    <button form="delete-banner-{{ banner.id }}" type="submit" class="danger-link" onclick="return confirm('Видалити банер?');">Видалити</button>
+                </div>
+            </form>
+        </article>
+        {% endfor %}
+    </div>
+    {% for banner in banners %}
+    <form id="delete-banner-{{ banner.id }}" method="post" action="{{ url_for('admin_banner_delete', banner_id=banner.id) }}"></form>
+    {% endfor %}
+    {% else %}
+    <div class="admin-empty">Банери ще не додані.</div>
+    {% endif %}
+</section>
+{% endblock %}

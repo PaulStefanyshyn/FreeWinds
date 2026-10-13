@@ -3,6 +3,7 @@ import hmac
 import json
 import os
 import time
+import uuid
 from functools import wraps
 from urllib.parse import parse_qsl
 
@@ -23,36 +24,55 @@ from werkzeug.utils import secure_filename
 from config import ADMIN_NAME, ADMIN_PASSWORD, ADMIN_USERNAME, SECRET_KEY, TELEGRAM_BOT_TOKEN
 from db import (
     BOOKING_STATUSES,
+    STATUS_LABELS,
     DatabaseUnavailable,
     Error,
     IntegrityError,
+    add_banner,
+    add_room_photo,
     cancel_booking,
     create_admin_user,
     create_booking,
+    delete_banner,
+    delete_room,
+    delete_room_photo,
     get_admin_booking,
     get_admin_bookings,
     get_admin_by_id,
     get_admin_by_username,
     get_admin_client,
     get_admin_clients,
+    get_admin_rooms,
     get_availability,
     get_booking_notification_payload,
     get_client_bookings,
     get_dashboard_summary,
+    get_banners,
     get_menu_categories,
     get_menu_category,
     get_menu_item,
     get_menu_items,
     get_public_menu,
+    get_public_rooms,
     get_recent_bookings,
+    get_room,
+    get_room_booking,
+    get_room_bookings,
+    get_site_setting,
     get_services,
     mark_admin_login,
+    save_room,
+    save_room_booking,
+    set_room_primary_photo,
+    set_site_setting,
     save_menu_category,
     save_menu_item,
     serialize_client,
     set_menu_category_active,
     set_menu_item_active,
     update_booking_status,
+    update_banner,
+    update_room_photo_order,
     upsert_client_from_telegram,
 )
 from notifications import send_booking_notification
@@ -63,7 +83,11 @@ app.secret_key = SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = 6 * 1024 * 1024
 
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'menu')
+ROOM_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'rooms')
+BANNER_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'banners')
+SITE_UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'site')
 ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
+ALLOWED_IMAGE_MIMES = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
 
 DEFAULT_HOUSE_DATA = {
     'start_date': '2026-10-12T00:00:00.000Z',
@@ -121,6 +145,22 @@ def save_uploaded_menu_image(file_storage):
     stored_name = f"{stem[:42]}-{int(time.time())}{ext.lower()}"
     file_storage.save(os.path.join(UPLOAD_FOLDER, stored_name))
     return f"/static/uploads/menu/{stored_name}"
+
+
+def save_uploaded_image(file_storage, upload_folder, url_prefix):
+    if not file_storage or not file_storage.filename:
+        return None
+    if not allowed_image(file_storage.filename):
+        raise ValueError('Підтримуються тільки jpg, jpeg, png, webp або gif.')
+    if file_storage.mimetype not in ALLOWED_IMAGE_MIMES:
+        raise ValueError('Файл має бути зображенням jpg, png, webp або gif.')
+
+    os.makedirs(upload_folder, exist_ok=True)
+    filename = secure_filename(file_storage.filename)
+    _, ext = os.path.splitext(filename)
+    stored_name = f"{uuid.uuid4().hex}{ext.lower()}"
+    file_storage.save(os.path.join(upload_folder, stored_name))
+    return f"{url_prefix}/{stored_name}"
 
 
 def bool_from_form(name, default=False):
@@ -211,7 +251,13 @@ def create_admin_command():
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    try:
+        hero_image_url = get_site_setting('home_hero_image', '/static/img/vodogray.png')
+        banners = get_banners(include_inactive=False)
+    except (DatabaseUnavailable, Error):
+        hero_image_url = '/static/img/vodogray.png'
+        banners = []
+    return render_template('index.html', hero_image_url=hero_image_url, banners=banners)
 
 @app.route('/menu')
 def info():
@@ -227,16 +273,45 @@ def service():
 
 @app.route('/rooms')
 def rooms():
-    return render_template('rooms.html')
+    check_in = request.args.get('check_in') or None
+    check_out = request.args.get('check_out') or None
+    try:
+        public_rooms = get_public_rooms(check_in=check_in, check_out=check_out)
+    except (ValueError, DatabaseUnavailable, Error):
+        public_rooms = []
+    return render_template('rooms.html', rooms=public_rooms, check_in=check_in, check_out=check_out)
 
 @app.route('/house', methods=['GET', 'POST'])
-def house():
+@app.route('/house/<int:room_id>', methods=['GET'])
+def house(room_id=None):
     if request.method == 'POST':
         data = request.get_json()
         session['house_data'] = data
         return '', 204
 
-    data = session.get('house_data') or DEFAULT_HOUSE_DATA
+    if room_id:
+        try:
+            room = get_room(room_id, include_photos=True)
+        except (DatabaseUnavailable, Error):
+            room = None
+        if not room or not room['is_active']:
+            flash('Номер не знайдено або він тимчасово недоступний.', 'error')
+            return redirect(url_for('rooms'))
+        data = {
+            'start_date': request.args.get('check_in') or DEFAULT_HOUSE_DATA['start_date'],
+            'end_date': request.args.get('check_out') or DEFAULT_HOUSE_DATA['end_date'],
+            'name': room['name'],
+            'description': room['description'],
+            'img': [photo['image_url'] for photo in room.get('photos', [])] or [room['primary_photo_url']],
+            'room_parap': [
+                f"{room['guests_count']} гостей",
+                room['area'] or '',
+                room['sleeping_places'] or '',
+            ],
+            'comfort': room['amenities_list'] or room['tags_list'],
+        }
+    else:
+        data = session.get('house_data') or DEFAULT_HOUSE_DATA
     
     return render_template(
         'house.html',
@@ -422,6 +497,7 @@ def admin_bookings():
         bookings=bookings,
         filters=filters,
         statuses=BOOKING_STATUSES,
+        status_labels=STATUS_LABELS,
     )
 
 
@@ -432,7 +508,7 @@ def admin_booking_detail(booking_id):
     if not booking:
         flash('Бронювання не знайдено.', 'error')
         return redirect(url_for('admin_bookings'))
-    return render_template('admin/booking_detail.html', booking=booking, statuses=BOOKING_STATUSES)
+    return render_template('admin/booking_detail.html', booking=booking, statuses=BOOKING_STATUSES, status_labels=STATUS_LABELS)
 
 
 @app.post('/admin/bookings/<int:booking_id>/status')
@@ -579,6 +655,237 @@ def admin_category_deactivate(category_id):
     else:
         flash('Категорію не знайдено.', 'error')
     return redirect(url_for('admin_categories'))
+
+
+@app.get('/admin/rooms')
+@admin_required
+def admin_rooms():
+    search = request.args.get('q', '').strip()
+    try:
+        rooms = get_admin_rooms(search=search or None)
+    except (DatabaseUnavailable, Error) as exc:
+        rooms = []
+        flash(str(exc) if isinstance(exc, DatabaseUnavailable) else 'Не вдалося завантажити номери.', 'error')
+    return render_template('admin/rooms.html', rooms=rooms, search=search)
+
+
+@app.route('/admin/rooms/new', methods=['GET', 'POST'])
+@admin_required
+def admin_room_new():
+    return handle_room_form()
+
+
+@app.route('/admin/rooms/<int:room_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def admin_room_edit(room_id):
+    return handle_room_form(room_id)
+
+
+def handle_room_form(room_id=None):
+    room = get_room(room_id, include_photos=True) if room_id else None
+    if room_id and not room:
+        flash('Номер не знайдено.', 'error')
+        return redirect(url_for('admin_rooms'))
+
+    if request.method == 'POST':
+        try:
+            payload = {
+                'name': request.form.get('name'),
+                'category': request.form.get('category'),
+                'description': request.form.get('description'),
+                'price': request.form.get('price'),
+                'guests_count': request.form.get('guests_count'),
+                'area': request.form.get('area'),
+                'sleeping_places': request.form.get('sleeping_places'),
+                'tags': request.form.get('tags'),
+                'amenities': request.form.get('amenities'),
+                'sort_order': request.form.get('sort_order'),
+                'is_active': bool_from_form('is_active', default=False),
+            }
+            saved_room = save_room(payload, room_id=room_id)
+            files = request.files.getlist('photos')
+            for index, image in enumerate(files):
+                image_url = save_uploaded_image(image, ROOM_UPLOAD_FOLDER, '/static/uploads/rooms')
+                if image_url:
+                    add_room_photo(saved_room['id'], image_url, alt_text=saved_room['name'], sort_order=index)
+            flash('Номер збережено.', 'success')
+            return redirect(url_for('admin_room_edit', room_id=saved_room['id']))
+        except (ValueError, IntegrityError) as exc:
+            flash(str(exc), 'error')
+        except (DatabaseUnavailable, Error):
+            flash('Помилка бази даних під час збереження номера.', 'error')
+
+    return render_template('admin/room_form.html', room=room)
+
+
+@app.post('/admin/rooms/<int:room_id>/photos/<int:photo_id>/primary')
+@admin_required
+def admin_room_photo_primary(room_id, photo_id):
+    if set_room_primary_photo(room_id, photo_id):
+        flash('Головне фото оновлено.', 'success')
+    else:
+        flash('Фото не знайдено.', 'error')
+    return redirect(url_for('admin_room_edit', room_id=room_id))
+
+
+@app.post('/admin/rooms/<int:room_id>/photos/order')
+@admin_required
+def admin_room_photo_order(room_id):
+    orders = []
+    for key, value in request.form.items():
+        if key.startswith('sort_order_'):
+            try:
+                orders.append((int(key.replace('sort_order_', '')), int(value or 0)))
+            except ValueError:
+                continue
+    update_room_photo_order(room_id, orders)
+    flash('Порядок фотографій оновлено.', 'success')
+    return redirect(url_for('admin_room_edit', room_id=room_id))
+
+
+@app.post('/admin/rooms/<int:room_id>/photos/<int:photo_id>/delete')
+@admin_required
+def admin_room_photo_delete(room_id, photo_id):
+    if delete_room_photo(room_id, photo_id):
+        flash('Фото видалено з номера.', 'success')
+    else:
+        flash('Фото не знайдено.', 'error')
+    return redirect(url_for('admin_room_edit', room_id=room_id))
+
+
+@app.post('/admin/rooms/<int:room_id>/delete')
+@admin_required
+def admin_room_delete(room_id):
+    result = delete_room(room_id)
+    if result == 'deactivated':
+        flash('Номер має повʼязані бронювання, тому його вимкнено замість видалення.', 'success')
+    elif result == 'deleted':
+        flash('Номер видалено.', 'success')
+    else:
+        flash('Номер не знайдено.', 'error')
+    return redirect(url_for('admin_rooms'))
+
+
+@app.get('/admin/room-bookings')
+@admin_required
+def admin_room_bookings():
+    status = request.args.get('status') or None
+    bookings = get_room_bookings(status=status)
+    return render_template(
+        'admin/room_bookings.html',
+        bookings=bookings,
+        statuses=BOOKING_STATUSES,
+        status_labels=STATUS_LABELS,
+        selected_status=status,
+    )
+
+
+@app.route('/admin/room-bookings/new', methods=['GET', 'POST'])
+@admin_required
+def admin_room_booking_new():
+    return handle_room_booking_form()
+
+
+@app.route('/admin/room-bookings/<int:booking_id>/edit', methods=['GET', 'POST'])
+@admin_required
+def admin_room_booking_edit(booking_id):
+    return handle_room_booking_form(booking_id)
+
+
+def handle_room_booking_form(booking_id=None):
+    booking = get_room_booking(booking_id) if booking_id else None
+    if booking_id and not booking:
+        flash('Бронювання номера не знайдено.', 'error')
+        return redirect(url_for('admin_room_bookings'))
+    rooms = get_admin_rooms(include_inactive=True)
+
+    if request.method == 'POST':
+        try:
+            saved = save_room_booking(request.form, booking_id=booking_id)
+            flash('Бронювання номера збережено.', 'success')
+            return redirect(url_for('admin_room_booking_edit', booking_id=saved['id']))
+        except ValueError as exc:
+            flash(str(exc), 'error')
+        except IntegrityError:
+            flash('Номер вже зайнятий на вибрані дати.', 'error')
+        except (DatabaseUnavailable, Error):
+            flash('Помилка бази даних під час збереження бронювання.', 'error')
+
+    return render_template(
+        'admin/room_booking_form.html',
+        booking=booking,
+        rooms=rooms,
+        statuses=BOOKING_STATUSES,
+        status_labels=STATUS_LABELS,
+    )
+
+
+@app.get('/admin/home-content')
+@admin_required
+def admin_home_content():
+    hero_image_url = get_site_setting('home_hero_image', '/static/img/vodogray.png')
+    banners = get_banners(include_inactive=True)
+    return render_template('admin/home_content.html', hero_image_url=hero_image_url, banners=banners)
+
+
+@app.post('/admin/home-content/hero')
+@admin_required
+def admin_home_hero_update():
+    try:
+        image_url = save_uploaded_image(request.files.get('hero_image'), SITE_UPLOAD_FOLDER, '/static/uploads/site')
+        if image_url:
+            set_site_setting('home_hero_image', image_url)
+            flash('Головне фото сайту оновлено.', 'success')
+        else:
+            flash('Оберіть файл зображення.', 'error')
+    except ValueError as exc:
+        flash(str(exc), 'error')
+    return redirect(url_for('admin_home_content'))
+
+
+@app.post('/admin/home-content/banners')
+@admin_required
+def admin_banner_create():
+    try:
+        image_url = save_uploaded_image(request.files.get('banner_image'), BANNER_UPLOAD_FOLDER, '/static/uploads/banners')
+        if not image_url:
+            flash('Оберіть файл банера.', 'error')
+        else:
+            add_banner(
+                image_url=image_url,
+                title=request.form.get('title'),
+                is_active=bool_from_form('is_active', default=False),
+                sort_order=request.form.get('sort_order') or 0,
+            )
+            flash('Банер додано.', 'success')
+    except ValueError as exc:
+        flash(str(exc), 'error')
+    return redirect(url_for('admin_home_content'))
+
+
+@app.post('/admin/home-content/banners/<int:banner_id>/edit')
+@admin_required
+def admin_banner_update(banner_id):
+    if update_banner(
+        banner_id,
+        title=request.form.get('title'),
+        is_active=bool_from_form('is_active', default=False),
+        sort_order=request.form.get('sort_order') or 0,
+    ):
+        flash('Банер оновлено.', 'success')
+    else:
+        flash('Банер не знайдено.', 'error')
+    return redirect(url_for('admin_home_content'))
+
+
+@app.post('/admin/home-content/banners/<int:banner_id>/delete')
+@admin_required
+def admin_banner_delete(banner_id):
+    if delete_banner(banner_id):
+        flash('Банер видалено.', 'success')
+    else:
+        flash('Банер не знайдено.', 'error')
+    return redirect(url_for('admin_home_content'))
 
 
 @app.get('/admin/clients')

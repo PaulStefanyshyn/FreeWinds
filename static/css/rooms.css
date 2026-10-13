@@ -25,6 +25,57 @@
     display: flex;
 }
 
+.room-date-filter {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(160px, 1fr)) auto auto;
+    gap: 12px;
+    align-items: end;
+    padding: 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.room-date-filter label {
+    display: grid;
+    gap: 7px;
+    color: var(--color-muted);
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.room-date-filter input {
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font: inherit;
+}
+
+.room-date-filter button,
+.room-date-filter a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 900;
+    text-decoration: none;
+}
+
+.room-date-filter button {
+    color: #fff;
+    background: var(--color-primary);
+}
+
+.room-date-filter a {
+    color: var(--color-primary);
+    background: var(--color-surface-soft);
+}
+
 #selected_date {
     min-height: 56px;
     display: inline-flex;
@@ -219,13 +270,34 @@
     content: " грн / ніч";
 }
 
-.price_block button {
+.price_block button,
+.price_block a {
     flex: 0 0 auto;
     min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     padding: 0 16px;
     color: white;
     background: var(--color-primary);
+    border-radius: var(--radius-md);
     font-size: 13px;
+    font-weight: 900;
+    text-decoration: none;
+}
+
+.room-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.room-tags span {
+    padding: 6px 9px;
+    color: var(--color-primary);
+    background: rgba(49, 95, 119, 0.1);
+    border-radius: 999px;
+    font-size: 12px;
     font-weight: 900;
 }
 
@@ -237,6 +309,10 @@
 
 @media (max-width: 640px) {
     #rooms {
+        grid-template-columns: 1fr;
+    }
+
+    .room-date-filter {
         grid-template-columns: 1fr;
     }
 

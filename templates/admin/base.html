@@ -17,29 +17,32 @@
                 <span>FW</span>
                 <div>
                     <strong>FreeWinds</strong>
-                    <small>Admin panel</small>
+                    <small>Адмінпанель</small>
                 </div>
             </a>
 
-            <nav class="admin-nav" aria-label="Admin navigation">
-                <a class="{{ 'active' if request.endpoint == 'admin_dashboard' else '' }}" href="{{ url_for('admin_dashboard') }}">Dashboard</a>
-                <a class="{{ 'active' if request.endpoint in ['admin_bookings', 'admin_booking_detail'] else '' }}" href="{{ url_for('admin_bookings') }}">Bookings</a>
-                <a class="{{ 'active' if request.endpoint in ['admin_menu', 'admin_menu_new', 'admin_menu_edit'] else '' }}" href="{{ url_for('admin_menu') }}">Menu</a>
-                <a class="{{ 'active' if request.endpoint == 'admin_categories' else '' }}" href="{{ url_for('admin_categories') }}">Categories</a>
-                <a class="{{ 'active' if request.endpoint in ['admin_clients', 'admin_client_detail'] else '' }}" href="{{ url_for('admin_clients') }}">Clients</a>
-                <a class="{{ 'active' if request.endpoint == 'admin_settings' else '' }}" href="{{ url_for('admin_settings') }}">Settings</a>
+            <nav class="admin-nav" aria-label="Навігація адмінпанелі">
+                <a class="{{ 'active' if request.endpoint == 'admin_dashboard' else '' }}" href="{{ url_for('admin_dashboard') }}">Огляд</a>
+                <a class="{{ 'active' if request.endpoint in ['admin_bookings', 'admin_booking_detail'] else '' }}" href="{{ url_for('admin_bookings') }}">Бронювання послуг</a>
+                <a class="{{ 'active' if request.endpoint in ['admin_rooms', 'admin_room_new', 'admin_room_edit'] else '' }}" href="{{ url_for('admin_rooms') }}">Номери</a>
+                <a class="{{ 'active' if request.endpoint in ['admin_room_bookings', 'admin_room_booking_new', 'admin_room_booking_edit'] else '' }}" href="{{ url_for('admin_room_bookings') }}">Бронювання номерів</a>
+                <a class="{{ 'active' if request.endpoint == 'admin_home_content' else '' }}" href="{{ url_for('admin_home_content') }}">Головна</a>
+                <a class="{{ 'active' if request.endpoint in ['admin_menu', 'admin_menu_new', 'admin_menu_edit'] else '' }}" href="{{ url_for('admin_menu') }}">Меню</a>
+                <a class="{{ 'active' if request.endpoint == 'admin_categories' else '' }}" href="{{ url_for('admin_categories') }}">Категорії</a>
+                <a class="{{ 'active' if request.endpoint in ['admin_clients', 'admin_client_detail'] else '' }}" href="{{ url_for('admin_clients') }}">Клієнти</a>
+                <a class="{{ 'active' if request.endpoint == 'admin_settings' else '' }}" href="{{ url_for('admin_settings') }}">Налаштування</a>
             </nav>
 
             <form action="{{ url_for('admin_logout') }}" method="post" class="admin-logout">
-                <button type="submit">Logout</button>
+                <button type="submit">Вийти</button>
             </form>
         </aside>
 
         <section class="admin-main">
             <header class="admin-topbar">
                 <div>
-                    <p class="eyebrow">{% block eyebrow %}Admin{% endblock %}</p>
-                    <h1>{% block title %}Dashboard{% endblock %}</h1>
+                    <p class="eyebrow">{% block eyebrow %}Адмінпанель{% endblock %}</p>
+                    <h1>{% block title %}Огляд{% endblock %}</h1>
                 </div>
                 <div class="admin-user">
                     <span>{{ g.admin.name if g.admin else 'Admin' }}</span>

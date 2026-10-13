@@ -1,0 +1,61 @@
+{% extends "admin/base.html" %}
+
+{% block eyebrow %}Проживання{% endblock %}
+{% block title %}{{ 'Редагувати бронювання' if booking else 'Нове бронювання номера' }}{% endblock %}
+
+{% block content %}
+<form method="post" class="admin-panel admin-form">
+    <div class="panel-head">
+        <h2>{{ 'Бронювання #' ~ booking.id if booking else 'Позначити номер зайнятим' }}</h2>
+        <a href="{{ url_for('admin_room_bookings') }}">До бронювань</a>
+    </div>
+
+    <div class="form-grid">
+        <label>
+            <span>Номер</span>
+            <select name="room_id" required>
+                {% for room in rooms %}
+                <option value="{{ room.id }}" {{ 'selected' if booking and booking.room_id == room.id else '' }}>{{ room.name }}{% if not room.is_active %} (вимкнений){% endif %}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            <span>Статус</span>
+            <select name="status">
+                {% for status in statuses %}
+                <option value="{{ status }}" {{ 'selected' if booking and booking.status == status else ('selected' if not booking and status == 'confirmed' else '') }}>{{ status_labels.get(status, status) }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>
+            <span>Дата заїзду</span>
+            <input type="date" name="check_in" value="{{ booking.check_in if booking else '' }}" required>
+        </label>
+        <label>
+            <span>Дата виїзду</span>
+            <input type="date" name="check_out" value="{{ booking.check_out if booking else '' }}" required>
+        </label>
+        <label>
+            <span>Імʼя гостя</span>
+            <input name="guest_name" value="{{ booking.guest_name if booking else '' }}">
+        </label>
+        <label>
+            <span>Телефон</span>
+            <input name="guest_phone" value="{{ booking.guest_phone if booking else '' }}">
+        </label>
+        <label>
+            <span>Email</span>
+            <input type="email" name="guest_email" value="{{ booking.guest_email if booking else '' }}">
+        </label>
+        <label class="full">
+            <span>Коментар</span>
+            <textarea name="comment" rows="4">{{ booking.comment if booking else '' }}</textarea>
+        </label>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="admin-primary">Зберегти бронювання</button>
+        <a class="admin-secondary" href="{{ url_for('admin_room_bookings') }}">Скасувати</a>
+    </div>
+</form>
+{% endblock %}
