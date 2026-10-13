@@ -93,19 +93,17 @@
 
         if (
             !Number.isInteger(hours) || hours < 0 || hours > 23 ||
-            !Number.isInteger(minutes) || minutes < 0 || minutes > 59 ||
-            !Number.isInteger(seconds) || seconds < 0 || seconds > 59
+            !Number.isInteger(minutes) || minutes < 0 || minutes > 59
         ) {
             throw new Error("Invalid time format: " + value);
         }
 
-        const date = new Date(Date.UTC(2026, 0, 15, hours, minutes, seconds));
+        const date = new Date(Date.UTC(2026, 0, 15, hours, minutes));
 
         const formatted = new Intl.DateTimeFormat("en-GB", {
             timeZone: "Europe/Kyiv",
             hour: "2-digit",
             minute: "2-digit",
-            second: "2-digit",
             hourCycle: "h23"
         }).format(date);
 
