@@ -46,7 +46,8 @@
                         <a class="table-action" href="{{ url_for('admin_room_edit', room_id=room.id) }}">Редагувати</a>
                         <form method="post" action="{{ url_for('admin_room_delete', room_id=room.id) }}" onsubmit="return confirm('Видалити номер? Якщо є активні бронювання, номер буде вимкнено.');">
                             <button type="submit" class="danger-link">Видалити</button>
-                        </form>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
                     </td>
                 </tr>
                 {% endfor %}

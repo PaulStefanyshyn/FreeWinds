@@ -252,7 +252,7 @@
     height: 10px;
     display: grid;
     place-items: center;
-    background: rgba(49, 95, 119, 0.1);
+    background: var(--color-muted);
     border-radius: 999px;
     transform: translateY(-50%);
 }

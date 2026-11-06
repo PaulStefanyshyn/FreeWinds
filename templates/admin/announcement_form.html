@@ -35,6 +35,7 @@
             <button type="submit" class="admin-primary">Зберегти</button>
             <a class="admin-secondary" href="{{ url_for('admin_announcements') }}">Скасувати</a>
         </div>
-    </form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
 </section>
 {% endblock %}

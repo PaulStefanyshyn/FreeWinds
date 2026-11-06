@@ -7,6 +7,7 @@ import secrets
 import threading
 import time
 import uuid
+from datetime import date
 from functools import wraps
 from urllib.parse import parse_qsl
 
@@ -120,6 +121,10 @@ from notifications import (
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax',
+                  SESSION_COOKIE_SECURE=os.environ.get('APP_ENV') == 'production')
+if os.environ.get('APP_ENV') == 'production' and SECRET_KEY in ('change-me', 'change-me-in-production', ''):
+    raise RuntimeError('Production requires a unique SECRET_KEY')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads', 'menu')
@@ -133,15 +138,38 @@ ALLOWED_IMAGE_MIMES = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
 ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'mov'}
 ALLOWED_VIDEO_MIMES = {'video/mp4', 'video/webm', 'video/quicktime'}
 
-DEFAULT_HOUSE_DATA = {
-    'start_date': '2026-10-12T00:00:00.000Z',
-    'end_date': '2026-10-14T00:00:00.000Z',
-    'name': 'Лісова хатина',
-    'description': "Дерев'яна хатина на узліссі з каміном.",
-    'img': ['/static/img/vodogray.png', '/static/img/retro_comand.png'],
-    'room_parap': ['2 гості', '25 м²', '1 спальня'],
-    'comfort': ['Двоспальне ліжко', 'Камін', 'Душ і ванна', 'Wi-Fi', 'Кавова зона', 'Тераса', 'Вид на ліс', 'Опалення'],
-}
+
+@app.context_processor
+def csrf_context():
+    if 'csrf_token' not in session:
+        session['csrf_token'] = secrets.token_urlsafe(32)
+    return {'csrf_token': session['csrf_token']}
+
+
+@app.before_request
+def protect_forms():
+    if request.method in ('POST', 'PATCH', 'DELETE') and not request.path.startswith('/api/'):
+        expected = session.get('csrf_token', '')
+        received = request.form.get('csrf_token', '')
+        if not expected or not hmac.compare_digest(expected.encode(), received.encode()):
+            return 'Сесія форми завершена. Оновіть сторінку та спробуйте ще раз.', 400
+
+
+@app.template_filter('area')
+def format_area(value):
+    value = str(value or '').strip()
+    if re.fullmatch(r'\d+(?:[.,]\d+)?', value):
+        return f'{value} м²'
+    return value
+
+
+@app.errorhandler(DatabaseUnavailable)
+@app.errorhandler(Error)
+def database_error(exc):
+    app.logger.error('Database operation failed: %s', type(exc).__name__)
+    if request.path.startswith('/api/'):
+        return jsonify(error='Сервіс тимчасово недоступний. Спробуйте пізніше.'), 503
+    return 'Сервіс тимчасово недоступний. Спробуйте пізніше.', 503
 
 
 def error_response(message, status=400):
@@ -253,7 +281,9 @@ def validate_room_booking_payload(data, room_id):
     guest_name = ' '.join(
         part for part in [user.get('first_name'), user.get('last_name')]
         if part
-    ).strip() or user.get('username') or (data.get('guest_name') or '').strip() or 'Клієнт'
+    ).strip() or user.get('username') or (data.get('guest_name') or '').strip()
+    if not guest_name:
+        raise ValueError('Вкажіть ім’я та прізвище')
     payload = {
         'room_id': room_id,
         'guest_name': guest_name,
@@ -279,6 +309,8 @@ def calculate_booking_preview(room, payload):
     nights = (check_out - check_in).days
     if nights <= 0:
         raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
+    if check_in < date.today():
+        raise ValueError('Дата заїзду не може бути в минулому')
     total = float(room['price']) * nights if room.get('price') is not None else None
     return {**payload, 'room': room, 'nights': nights, 'total': total}
 
@@ -337,7 +369,7 @@ def verify_telegram_init_data(init_data):
     if not auth_date:
         return None
     try:
-        if time.time() - int(auth_date) > 86400:
+        if not -60 <= time.time() - int(auth_date) <= 86400:
             return None
     except ValueError:
         return None
@@ -347,7 +379,8 @@ def verify_telegram_init_data(init_data):
         return None
 
     try:
-        return json.loads(user_data)
+        user = json.loads(user_data)
+        return user if isinstance(user, dict) and isinstance(user.get('id'), int) and user['id'] > 0 else None
     except json.JSONDecodeError:
         return None
 
@@ -363,7 +396,7 @@ def get_init_data():
 
     if request.is_json:
         body = request.get_json(silent=True) or {}
-        return body.get('initData')
+        return body.get('initData') if isinstance(body, dict) else None
 
     return request.args.get('tg_init_data')
 
@@ -372,7 +405,8 @@ def get_current_client():
     user = verify_telegram_init_data(get_init_data())
     if not user:
         return None
-    return upsert_client_from_telegram(user)
+    client = upsert_client_from_telegram(user)
+    return client if client and client.get('status', 'active') == 'active' else None
 
 
 @app.cli.command('create-admin')
@@ -434,14 +468,9 @@ def rooms():
 def my_bookings():
     return render_template('my_bookings.html')
 
-@app.route('/house', methods=['GET', 'POST'])
+@app.route('/house', methods=['GET'])
 @app.route('/house/<int:room_id>', methods=['GET'])
 def house(room_id=None):
-    if request.method == 'POST':
-        data = request.get_json()
-        session['house_data'] = data
-        return '', 204
-
     if room_id:
         try:
             room = get_room(room_id, include_photos=True)
@@ -471,20 +500,20 @@ def house(room_id=None):
             'id': room['id'],
             'check_in': check_in,
             'check_out': check_out,
-            'start_date': check_in or DEFAULT_HOUSE_DATA['start_date'],
-            'end_date': check_out or DEFAULT_HOUSE_DATA['end_date'],
+            'start_date': check_in,
+            'end_date': check_out,
             'name': room['name'],
             'description': room['description'],
             'img': [photo['image_url'] for photo in room.get('photos', [])] or [room['primary_photo_url']],
             'room_parap': [
                 f"{room['guests_count']} гостей",
-                room['area'] or '',
+                format_area(room['area']),
                 room['sleeping_places'] or '',
             ],
             'comfort': room['amenities_list'] or room['tags_list'],
         }
     else:
-        data = session.get('house_data') or DEFAULT_HOUSE_DATA
+        return redirect(url_for('rooms'))
     
     return render_template(
         'house.html',
@@ -505,6 +534,7 @@ def room_booking_start(room_id):
 
     errors = []
     form = {
+        'guest_name': '',
         'guest_phone': '',
         'check_in': request.args.get('check_in') or '',
         'check_out': request.args.get('check_out') or '',
@@ -512,30 +542,20 @@ def room_booking_start(room_id):
     }
     if request.method == 'POST':
         form.update({key: request.form.get(key, '') for key in form})
-    if not form['check_in'] or not form['check_out']:
-        flash('Спочатку оберіть дати заїзду та виїзду.', 'error')
-        return redirect(url_for('rooms'))
+    pending = session.get('pending_room_booking', {})
+    if request.method == 'GET' and pending.get('room_id') == room_id:
+        form.update({key: pending.get(key, form[key]) for key in form if key not in ('check_in', 'check_out') or not request.args.get(key)})
     try:
+        if not form['check_in'] or not form['check_out']:
+            raise ValueError('Оберіть дату заїзду та виїзду')
         ensure_room_available_for_payload(room, {**form, 'room_id': room_id})
-    except IntegrityError:
-        flash('На вибрані дати цей номер вже зайнятий. Оберіть інший номер або змініть дати.', 'error')
-        return redirect(url_for('rooms', check_in=form.get('check_in'), check_out=form.get('check_out')))
-    except ValueError as exc:
-        flash(str(exc), 'error')
-        return redirect(url_for('rooms'))
+    except (IntegrityError, ValueError) as exc:
+        errors.append('Номер зайнятий на вибрані дати. Оберіть інший період.' if isinstance(exc, IntegrityError) else str(exc))
     except (DatabaseUnavailable, Error):
-        flash('Не вдалося перевірити доступність. Спробуйте пізніше.', 'error')
-        return redirect(url_for('rooms'))
-    if request.method == 'POST':
+        errors.append('Не вдалося перевірити доступність. Спробуйте пізніше.')
+    if request.method == 'POST' and not errors:
         try:
             telegram_user = verify_telegram_init_data(request.form.get('initData'))
-            if not telegram_user:
-                telegram_user = {
-                    'id': request.form.get('telegram_user_id') or None,
-                    'first_name': request.form.get('telegram_first_name') or None,
-                    'last_name': request.form.get('telegram_last_name') or None,
-                    'username': request.form.get('telegram_username') or None,
-                }
             form['telegram_user'] = telegram_user
             form['guest_name'] = request.form.get('guest_name')
             payload = validate_room_booking_payload(form, room_id)
@@ -597,14 +617,18 @@ def room_booking_confirm():
 
     try:
         room = get_room(payload['room_id'], include_photos=False)
+        ensure_room_available_for_payload(room, payload)
         calculate_booking_preview(room, payload)
         link_token = secrets.token_urlsafe(32)
         booking = create_public_room_booking(payload, link_token=link_token)
         session.pop('pending_room_booking', None)
         session.pop('pending_room_booking_preview', None)
         session.pop('room_booking_submit_token', None)
-        if send_room_booking_admin_notification(booking, admin_url=room_booking_admin_url(booking['id'])):
-            mark_room_booking_admin_notified(booking['id'])
+        try:
+            if send_room_booking_admin_notification(booking, admin_url=room_booking_admin_url(booking['id'])):
+                mark_room_booking_admin_notified(booking['id'])
+        except (DatabaseUnavailable, Error, OSError):
+            app.logger.exception('Booking saved, admin notification not recorded')
         session['last_room_booking_id'] = booking['id']
         return redirect(url_for('room_booking_success', booking_id=booking['id']))
     except IntegrityError:
@@ -622,7 +646,10 @@ def room_booking_confirm():
 def room_booking_success(booking_id):
     if session.get('last_room_booking_id') != booking_id:
         return redirect(url_for('rooms'))
-    booking = get_room_booking(booking_id)
+    try:
+        booking = get_room_booking(booking_id)
+    except (DatabaseUnavailable, Error):
+        return 'Не вдалося завантажити бронювання. Спробуйте пізніше.', 503
     if not booking:
         return redirect(url_for('rooms'))
     return render_template(
@@ -639,10 +666,10 @@ def api_client_me():
     except DatabaseUnavailable as exc:
         return error_response(str(exc), 503)
     except Error:
-        return error_response('Database error', 500)
+        return error_response('Помилка бази даних. Спробуйте пізніше.', 500)
 
     if not client:
-        return error_response('Telegram authorization is required', 401)
+        return error_response('Відкрийте сторінку через Telegram для авторизації.', 401)
 
     return jsonify({'client': serialize_client(client)})
 
@@ -654,7 +681,7 @@ def api_services():
     except DatabaseUnavailable as exc:
         return error_response(str(exc), 503)
     except Error:
-        return error_response('Database error', 500)
+        return error_response('Помилка бази даних. Спробуйте пізніше.', 500)
 
 
 @app.get('/api/menu')
@@ -664,7 +691,7 @@ def api_menu():
     except DatabaseUnavailable as exc:
         return error_response(str(exc), 503)
     except Error:
-        return error_response('Database error', 500)
+        return error_response('Помилка бази даних. Спробуйте пізніше.', 500)
 
 
 @app.get('/api/bookings')
@@ -672,12 +699,12 @@ def api_bookings():
     try:
         client = get_current_client()
         if not client:
-            return error_response('Telegram authorization is required', 401)
+            return error_response('Відкрийте сторінку через Telegram для авторизації.', 401)
         return jsonify({'bookings': get_client_bookings(client['id'])})
     except DatabaseUnavailable as exc:
         return error_response(str(exc), 503)
     except Error:
-        return error_response('Database error', 500)
+        return error_response('Помилка бази даних. Спробуйте пізніше.', 500)
 
 
 @app.get('/api/room-bookings')
@@ -685,12 +712,12 @@ def api_room_bookings():
     try:
         client = get_current_client()
         if not client:
-            return error_response('Telegram authorization is required', 401)
+            return error_response('Відкрийте сторінку через Telegram для авторизації.', 401)
         return jsonify({'bookings': get_client_room_bookings(client['id'])})
     except DatabaseUnavailable as exc:
         return error_response(str(exc), 503)
     except Error:
-        return error_response('Database error', 500)
+        return error_response('Помилка бази даних. Спробуйте пізніше.', 500)
 
 
 @app.get('/api/booking/availability')
@@ -699,19 +726,19 @@ def api_booking_availability():
     start_date = request.args.get('start_date')
 
     if not service_id:
-        return error_response('service_id is required')
+        return error_response('Оберіть послугу')
 
     try:
         availability = get_availability(service_id, start_date=start_date)
     except ValueError:
-        return error_response('Invalid date format. Use YYYY-MM-DD')
+        return error_response('Оберіть коректну дату у форматі РРРР-ММ-ДД')
     except DatabaseUnavailable as exc:
         return error_response(str(exc), 503)
     except Error:
-        return error_response('Database error', 500)
+        return error_response('Помилка бази даних. Спробуйте пізніше.', 500)
 
     if availability is None:
-        return error_response('Service not found', 404)
+        return error_response('Послугу не знайдено', 404)
 
     return jsonify({'availability': availability})
 
@@ -719,11 +746,13 @@ def api_booking_availability():
 @app.post('/api/bookings')
 def api_create_booking():
     data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return error_response('Некоректний формат заявки')
 
     try:
         client = get_current_client()
         if not client:
-            return error_response('Telegram authorization is required', 401)
+            return error_response('Відкрийте сторінку через Telegram для авторизації.', 401)
 
         booking = create_booking(
             client_id=client['id'],
@@ -732,20 +761,23 @@ def api_create_booking():
             booking_time=data.get('booking_time'),
             comment=data.get('comment'),
         )
-        notification_booking = get_booking_notification_payload(booking['id'])
-        if notification_booking:
-            send_booking_notification(notification_booking)
+        try:
+            notification_booking = get_booking_notification_payload(booking['id'])
+            if notification_booking:
+                send_booking_notification(notification_booking)
+        except (DatabaseUnavailable, Error, OSError):
+            app.logger.exception('Service booking saved, admin notification failed')
         return jsonify({'booking': booking}), 201
     except ValueError as exc:
         return error_response(str(exc))
     except LookupError as exc:
         return error_response(str(exc), 404)
     except IntegrityError:
-        return error_response('Selected slot is already booked', 409)
+        return error_response('Вибраний час уже зайнятий. Оберіть інший.', 409)
     except DatabaseUnavailable as exc:
         return error_response(str(exc), 503)
     except Error:
-        return error_response('Database error', 500)
+        return error_response('Помилка бази даних. Спробуйте пізніше.', 500)
 
 
 @app.route('/admin')
@@ -766,7 +798,8 @@ def admin_login():
                 session.clear()
                 session['admin_id'] = admin['id']
                 mark_admin_login(admin['id'])
-                return redirect(request.args.get('next') or url_for('admin_dashboard'))
+                next_path = request.args.get('next', '')
+                return redirect(next_path if next_path.startswith('/') and not next_path.startswith('//') and '\\' not in next_path else url_for('admin_dashboard'))
         except DatabaseUnavailable as exc:
             flash(str(exc), 'error')
             return render_template('admin/login.html')
@@ -843,7 +876,7 @@ def admin_booking_update_status(booking_id):
     status = request.form.get('status')
     try:
         booking = update_booking_status(booking_id, status)
-    except ValueError as exc:
+    except (ValueError, IntegrityError) as exc:
         flash(str(exc), 'error')
         return redirect(url_for('admin_booking_detail', booking_id=booking_id))
 
@@ -1570,7 +1603,7 @@ def api_cancel_booking(booking_id):
     try:
         client = get_current_client()
         if not client:
-            return error_response('Telegram authorization is required', 401)
+            return error_response('Відкрийте сторінку через Telegram для авторизації.', 401)
 
         booking = cancel_booking(client['id'], booking_id)
         if not booking:
@@ -1579,7 +1612,7 @@ def api_cancel_booking(booking_id):
     except DatabaseUnavailable as exc:
         return error_response(str(exc), 503)
     except Error:
-        return error_response('Database error', 500)
+        return error_response('Помилка бази даних. Спробуйте пізніше.', 500)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='127.0.0.1', port=5000)

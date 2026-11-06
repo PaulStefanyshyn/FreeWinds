@@ -3,7 +3,7 @@
         <img class="site-logo-img" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Вільні вітри">
         <div>
             <h2>Вільні вітри</h2>
-            <p>hotel & spa</p>
+            <p>Готель і спа</p>
         </div>
     </a>
 
@@ -18,13 +18,13 @@
 
 <div class="menu-backdrop" id="menu_backdrop"></div>
 
-<nav class="site-menu" id="menu" aria-label="Головна навігація" tabindex="-1">
+<nav class="site-menu" id="menu" aria-label="Головна навігація" tabindex="-1" inert>
     <div class="menu-head">
         <a class="menu-brand" href="/" aria-label="Вільні вітри">
             <img class="site-logo-img" src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Вільні вітри">
             <div>
                 <strong>Вільні вітри</strong>
-                <span>hotel & spa</span>
+                <span>Готель і спа</span>
             </div>
         </a>
         <button class="menu-close" id="menu_close" type="button" aria-label="Закрити меню">
@@ -56,8 +56,8 @@
 
     <div class="cont">
         <span>Потрібна допомога?</span>
-        <p>+38 099 123 45 67</p>
-        <p>vilnivitry_hotel</p>
+        <a href="tel:+380991234567">+38 099 123 45 67</a>
+        <a href="https://www.instagram.com/vilnivitry_hotel/" target="_blank" rel="noopener noreferrer">vilnivitry_hotel</a>
         <a class="menu-cta" href="/service">Забронювати</a>
     </div>
 </nav>
@@ -71,6 +71,7 @@
 
     function openMenu() {
         burger.classList.add("active");
+        menu.inert = false;
         menu.classList.add("active");
         backdrop.classList.add("active");
         burger.setAttribute("aria-expanded", "true");
@@ -82,6 +83,8 @@
     function closeMenu() {
         burger.classList.remove("active");
         menu.classList.remove("active");
+        menu.inert = true;
+        burger.focus({preventScroll: true});
         backdrop.classList.remove("active");
         burger.setAttribute("aria-expanded", "false");
 
@@ -97,7 +100,7 @@
     };
 
 
-    const currentPath = window.location.pathname === "/house" ? "/rooms" : window.location.pathname;
+    const currentPath = window.location.pathname.startsWith("/house") || window.location.pathname.startsWith("/rooms/") ? "/rooms" : window.location.pathname;
 
     // Close when clicking a link
     menuLinks.forEach(link => {
@@ -114,6 +117,12 @@
     backdrop.onclick = closeMenu;
 
     document.addEventListener("keydown", function (event) {
+        if (event.key === "Tab" && menu.classList.contains("active")) {
+            const focusable = [...menu.querySelectorAll('a, button')];
+            const first = focusable[0], last = focusable[focusable.length - 1];
+            if (event.shiftKey && (document.activeElement === first || document.activeElement === menu)) { event.preventDefault(); last.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
         if (event.key === "Escape" && menu.classList.contains("active")) {
             closeMenu();
         }

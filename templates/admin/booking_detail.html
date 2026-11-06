@@ -29,7 +29,8 @@
                 </select>
             </label>
             <button type="submit" class="admin-primary">Оновити статус</button>
-        </form>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
     </section>
 
     <section class="admin-panel detail-list">

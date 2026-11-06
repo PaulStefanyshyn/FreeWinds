@@ -65,6 +65,9 @@ def fetch_all(query, params=None):
 
 
 def normalize_time(value):
+    if isinstance(value, timedelta):
+        seconds = int(value.total_seconds())
+        return f'{seconds // 3600:02d}:{seconds % 3600 // 60:02d}'
     if isinstance(value, time):
         return value.strftime('%H:%M')
     return str(value)[:5]
@@ -88,6 +91,11 @@ def serialize_client(client):
     }
 
 
+def clean_optional_text(value):
+    text = str(value or '').strip()
+    return '' if text.lower() in ('none', 'null', 'undefined') else text
+
+
 def serialize_service(service):
     photos = service.get('photos') if isinstance(service, dict) else None
     return {
@@ -97,7 +105,7 @@ def serialize_service(service):
         'price': float(service['price']) if service.get('price') is not None else None,
         'price_unit': service.get('price_unit') or 'год',
         'duration_minutes': service.get('duration_minutes'),
-        'conditions': service.get('conditions'),
+        'conditions': clean_optional_text(service.get('conditions')),
         'image_url': service.get('image_url'),
         'is_active': bool(service.get('is_active')),
         'sort_order': service.get('sort_order') or 0,
@@ -114,6 +122,7 @@ def serialize_booking(booking):
         'booking_date': booking['booking_date'].isoformat(),
         'booking_time': normalize_time(booking['booking_time']),
         'status': booking['status'],
+        'status_label': STATUS_LABELS.get(booking['status'], booking['status']),
         'comment': booking.get('comment'),
         'created_at': serialize_datetime(booking.get('created_at')),
     }
@@ -326,7 +335,7 @@ def save_service(data, service_id=None):
         'price': price,
         'price_unit': (data.get('price_unit') or '').strip() or 'год',
         'duration_minutes': duration_minutes,
-        'conditions': (data.get('conditions') or '').strip() or None,
+        'conditions': clean_optional_text(data.get('conditions')) or None,
         'image_url': (data.get('image_url') or '').strip() or None,
         'is_active': bool(data.get('is_active')),
         'sort_order': int(data.get('sort_order') or 0),
@@ -536,7 +545,7 @@ def get_client_bookings(client_id):
 
 def get_availability(service_id, start_date=None, days=7):
     service = fetch_one(
-        "SELECT id FROM services WHERE id = %s AND is_active = 1",
+        "SELECT id, duration_minutes FROM services WHERE id = %s AND is_active = 1",
         (service_id,),
     )
     if not service:
@@ -551,6 +560,7 @@ def get_availability(service_id, start_date=None, days=7):
         start = today
 
     end = start + timedelta(days=max(1, min(days, 14)) - 1)
+    duration = timedelta(minutes=service.get('duration_minutes') or 60)
     booked = fetch_all(
         """
         SELECT booking_date, booking_time
@@ -559,63 +569,76 @@ def get_availability(service_id, start_date=None, days=7):
           AND booking_date BETWEEN %s AND %s
           AND status IN ('pending', 'confirmed')
         """,
-        (service_id, start, end),
+        (service_id, start - timedelta(days=(service.get('duration_minutes') or 60) // 1440 + 1), end + timedelta(days=(service.get('duration_minutes') or 60) // 1440 + 1)),
     )
-    blocked = {
-        (item['booking_date'].isoformat(), normalize_time(item['booking_time']))
+    blocked = [
+        datetime.combine(item['booking_date'], datetime.strptime(normalize_time(item['booking_time']), '%H:%M').time())
         for item in booked
-    }
-
+    ]
     availability = []
+    now = datetime.now()
     for offset in range((end - start).days + 1):
         current = start + timedelta(days=offset)
-        slots = [
-            slot for slot in DEFAULT_SLOTS
-            if (current.isoformat(), slot) not in blocked
-        ]
+        slots = []
+        for slot in DEFAULT_SLOTS:
+            beginning = datetime.combine(current, datetime.strptime(slot, '%H:%M').time())
+            if beginning <= now:
+                continue
+            if any(beginning < occupied + duration and beginning + duration > occupied for occupied in blocked):
+                continue
+            slots.append(slot)
         availability.append({'date': current.isoformat(), 'slots': slots})
 
     return availability
 
 
+def service_booking_overlaps(cursor, service_id, booking_date, booking_time, duration, exclude_id=0):
+    cursor.execute(
+        """
+        SELECT id FROM bookings
+        WHERE service_id = %s AND id <> %s
+          AND TIMESTAMP(booking_date, booking_time) < TIMESTAMPADD(MINUTE, %s, TIMESTAMP(%s, %s))
+          AND TIMESTAMPADD(MINUTE, %s, TIMESTAMP(booking_date, booking_time)) > TIMESTAMP(%s, %s)
+          AND status IN ('pending', 'confirmed')
+        FOR UPDATE
+        """,
+        (service_id, exclude_id, duration, booking_date, booking_time, duration, booking_date, booking_time),
+    )
+    return bool(cursor.fetchone())
+
+
 def create_booking(client_id, service_id, booking_date, booking_time, comment=None):
     if not client_id:
-        raise ValueError('Client is required')
+        raise ValueError('Необхідна авторизація клієнта')
     if not service_id:
-        raise ValueError('Service is required')
+        raise ValueError('Оберіть послугу')
+    if isinstance(service_id, bool) or not isinstance(service_id, (int, str)) or not str(service_id).isdigit() or int(service_id) <= 0:
+        raise ValueError('Оберіть коректну послугу')
+    if comment is not None and not isinstance(comment, str):
+        raise ValueError('Коментар має бути текстом')
     if booking_time not in DEFAULT_SLOTS:
-        raise ValueError('Selected time is not available')
+        raise ValueError('Оберіть доступний час')
 
-    parsed_date = datetime.strptime(booking_date, '%Y-%m-%d').date()
-    if parsed_date < date.today():
-        raise ValueError('Booking date cannot be in the past')
+    parsed_date = parse_booking_date(booking_date)
+    if datetime.combine(parsed_date, datetime.strptime(booking_time, '%H:%M').time()) <= datetime.now():
+        raise ValueError('Час бронювання не може бути в минулому')
 
     with get_connection() as connection:
         cursor = connection.cursor(dictionary=True)
         cursor.execute("SELECT id FROM clients WHERE id = %s", (client_id,))
         if not cursor.fetchone():
-            raise LookupError('Client not found')
+            raise LookupError('Клієнта не знайдено')
 
         cursor.execute(
-            "SELECT id FROM services WHERE id = %s AND is_active = 1",
+            "SELECT id, duration_minutes FROM services WHERE id = %s AND is_active = 1 FOR UPDATE",
             (service_id,),
         )
-        if not cursor.fetchone():
-            raise LookupError('Service not found')
+        service = cursor.fetchone()
+        if not service:
+            raise LookupError('Послугу не знайдено')
+        duration = service.get('duration_minutes') or 60
 
-        cursor.execute(
-            """
-            SELECT id
-            FROM bookings
-            WHERE service_id = %s
-              AND booking_date = %s
-              AND booking_time = %s
-              AND status IN ('pending', 'confirmed')
-            FOR UPDATE
-            """,
-            (service_id, parsed_date, booking_time),
-        )
-        if cursor.fetchone():
+        if service_booking_overlaps(cursor, service_id, parsed_date, booking_time, duration):
             raise IntegrityError('Selected slot is already booked')
 
         cursor.execute(
@@ -820,6 +843,17 @@ def update_booking_status(booking_id, status):
 
     with get_connection() as connection:
         cursor = connection.cursor(dictionary=True)
+        cursor.execute('SELECT * FROM bookings WHERE id = %s', (booking_id,))
+        current = cursor.fetchone()
+        if not current:
+            return None
+        cursor.execute('SELECT duration_minutes FROM services WHERE id = %s FOR UPDATE', (current['service_id'],))
+        service = cursor.fetchone()
+        if status in ('pending', 'confirmed') and service_booking_overlaps(
+            cursor, current['service_id'], current['booking_date'], normalize_time(current['booking_time']),
+            service.get('duration_minutes') or 60, exclude_id=booking_id,
+        ):
+            raise IntegrityError('Час цього бронювання перетинається з іншою заявкою')
         cursor.execute(
             "UPDATE bookings SET status = %s, updated_at = NOW() WHERE id = %s",
             (status, booking_id),
@@ -1127,7 +1161,7 @@ def room_has_overlap(room_id, check_in, check_out, exclude_booking_id=None):
     check_out = parse_booking_date(check_out, 'Дата виїзду')
     if check_out <= check_in:
         raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
-    params = [room_id, check_in, check_out]
+    params = [room_id, check_out, check_in]
     clause = ''
     if exclude_booking_id:
         clause = 'AND id <> %s'
@@ -1175,6 +1209,8 @@ def get_public_rooms(check_in=None, check_out=None):
         check_out = parse_booking_date(check_out, 'Дата виїзду')
         if check_out <= check_in:
             raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
+        if check_in < date.today():
+            raise ValueError('Дата заїзду не може бути в минулому')
         rows = fetch_all(
             room_base_query(
                 """
@@ -1510,6 +1546,9 @@ def create_public_room_booking(data, link_token):
     check_out = parse_booking_date(data.get('check_out'), 'Дата виїзду')
     if check_out <= check_in:
         raise ValueError('Дата виїзду повинна бути пізніше дати заїзду')
+
+    if check_in < date.today():
+        raise ValueError('Дата заїзду не може бути в минулому')
 
     payload = {
         'room_id': int(room_id),

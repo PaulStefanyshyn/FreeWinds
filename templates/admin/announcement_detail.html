@@ -30,17 +30,20 @@
             {% if announcement.status == 'ready' %}
             <form method="post" action="{{ url_for('admin_announcement_send', announcement_id=announcement.id) }}" onsubmit="return confirm('Надіслати оголошення {{ recipients_count }} одержувачам?');">
                 <button type="submit" class="admin-primary">Надіслати {{ recipients_count }} одержувачам</button>
-            </form>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
             {% endif %}
             {% if announcement.failed_count %}
             <form method="post" action="{{ url_for('admin_announcement_retry_failed', announcement_id=announcement.id) }}" onsubmit="return confirm('Повторити надсилання тільки невдалим отримувачам?');">
                 <button type="submit" class="admin-secondary">Повторити невдалим</button>
-            </form>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
             {% endif %}
             {% if announcement.status != 'sent' %}
             <form method="post" action="{{ url_for('admin_announcement_delete', announcement_id=announcement.id) }}" onsubmit="return confirm('Видалити оголошення?');">
                 <button type="submit" class="danger-link">Видалити</button>
-            </form>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
             {% endif %}
         </div>
     </section>

@@ -24,8 +24,10 @@
                 {% if not category.items_count and category.is_active %}
                 <button form="deactivate-category-{{ category.id }}" type="submit" class="danger-link">Деактивувати</button>
                 {% endif %}
-            </form>
-            <form id="deactivate-category-{{ category.id }}" method="post" action="{{ url_for('admin_category_deactivate', category_id=category.id) }}" onsubmit="return confirm('Деактивувати категорію?');"></form>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
+            <form id="deactivate-category-{{ category.id }}" method="post" action="{{ url_for('admin_category_deactivate', category_id=category.id) }}" onsubmit="return confirm('Деактивувати категорію?');"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
             {% endfor %}
         </div>
         {% else %}
@@ -51,7 +53,8 @@
                 <span>Активна</span>
             </label>
             <button type="submit" class="admin-primary">Створити категорію</button>
-        </form>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
     </section>
 </div>
 {% endblock %}

@@ -76,7 +76,8 @@
                         {% if item.is_active %}
                         <form method="post" action="{{ url_for('admin_menu_deactivate', item_id=item.id) }}" onsubmit="return confirm('Деактивувати страву?');">
                             <button type="submit" class="danger-link">Деактивувати</button>
-                        </form>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
                         {% endif %}
                     </td>
                 </tr>

@@ -68,6 +68,7 @@
         <button type="submit" class="admin-primary">Зберегти послугу</button>
         <a class="admin-secondary" href="{{ url_for('admin_services') }}">Скасувати</a>
     </div>
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 </form>
 
 {% if service %}
@@ -99,11 +100,14 @@
         <div class="form-actions full">
             <button type="submit" class="admin-primary">Оновити порядок</button>
         </div>
-    </form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
 
     {% for photo in service.photos %}
-    <form id="primary-service-photo-{{ photo.id }}" method="post" action="{{ url_for('admin_service_photo_primary', service_id=service.id, photo_id=photo.id) }}"></form>
-    <form id="delete-service-photo-{{ photo.id }}" method="post" action="{{ url_for('admin_service_photo_delete', service_id=service.id, photo_id=photo.id) }}"></form>
+    <form id="primary-service-photo-{{ photo.id }}" method="post" action="{{ url_for('admin_service_photo_primary', service_id=service.id, photo_id=photo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
+    <form id="delete-service-photo-{{ photo.id }}" method="post" action="{{ url_for('admin_service_photo_delete', service_id=service.id, photo_id=photo.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
     {% endfor %}
     {% else %}
     <div class="admin-empty">У цієї послуги ще немає фотографій.</div>

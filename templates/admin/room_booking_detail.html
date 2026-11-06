@@ -32,23 +32,27 @@
             <form method="post" action="{{ url_for('admin_room_booking_update_status', booking_id=booking.id) }}">
                 <input type="hidden" name="status" value="confirmed">
                 <button type="submit" class="admin-primary">Підтвердити</button>
-            </form>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
             <form method="post" action="{{ url_for('admin_room_booking_update_status', booking_id=booking.id) }}" onsubmit="return confirm('Скасувати цю заявку?');">
                 <input type="hidden" name="status" value="cancelled">
                 <button type="submit" class="danger-link">Скасувати</button>
-            </form>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
             {% elif booking.status == 'confirmed' %}
             <form method="post" action="{{ url_for('admin_room_booking_update_status', booking_id=booking.id) }}" onsubmit="return confirm('Скасувати підтверджене бронювання?');">
                 <input type="hidden" name="status" value="cancelled">
                 <button type="submit" class="danger-link">Скасувати бронювання</button>
-            </form>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
             {% else %}
             <div class="admin-empty">Для цього статусу швидких дій немає.</div>
             {% endif %}
             {% if booking.status in ['confirmed', 'cancelled'] and booking.telegram_linked %}
             <form method="post" action="{{ url_for('admin_room_booking_notify_client', booking_id=booking.id) }}">
                 <button type="submit" class="admin-secondary">Повторити Telegram-сповіщення</button>
-            </form>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
             {% endif %}
             <a class="admin-secondary" href="{{ url_for('admin_room_booking_edit', booking_id=booking.id) }}">Редагувати заявку</a>
         </div>

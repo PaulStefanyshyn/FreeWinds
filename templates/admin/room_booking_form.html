@@ -61,5 +61,6 @@
         <button type="submit" class="admin-primary">Зберегти бронювання</button>
         <a class="admin-secondary" href="{{ url_for('admin_room_bookings') }}">Скасувати</a>
     </div>
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 </form>
 {% endblock %}

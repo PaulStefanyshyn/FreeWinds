@@ -9,7 +9,7 @@
 
 <div class="rooms">
     <div class="title page-title">
-        <p class="eyebrow">Stay</p>
+        <p class="eyebrow">Проживання</p>
         <h1>Номери</h1>
         <p>Оберіть дати, щоб побачити доступні номери для проживання.</p>
     </div>
@@ -53,7 +53,7 @@
                 <p>{{ room.description or 'Затишний номер для відпочинку.' }}</p>
                 <div class="room-tags">
                     <span>{{ room.guests_count }} гостей</span>
-                    {% if room.area %}<span>{{ room.area }}</span>{% endif %}
+                    {% if room.area %}<span>{{ room.area|area }}</span>{% endif %}
                     {% if room.sleeping_places %}<span>{{ room.sleeping_places }}</span>{% endif %}
                 </div>
                 <div class="price_block">

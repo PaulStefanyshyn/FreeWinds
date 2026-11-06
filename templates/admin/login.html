@@ -45,7 +45,8 @@
                 <input name="password" type="password" autocomplete="current-password" required>
             </label>
             <button type="submit" class="admin-primary">Увійти</button>
-        </form>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
     </main>
 </body>
 </html>

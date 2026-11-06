@@ -9,31 +9,31 @@
 
 <div class="services">
     <div class="booking-hero">
-        <button class="back-link" type="button" onclick="history.back()">Назад</button>
+        <a class="back-link" href="/">На головну</a>
         <div class="booking-title">
-            <p class="eyebrow">Telegram booking</p>
+            <p class="eyebrow">Бронювання послуг</p>
             <h1>Бронювання</h1>
             <p>Оберіть послугу, дату та зручний час. Ми перевіримо доступність перед підтвердженням.</p>
         </div>
     </div>
 
     <div class="booking-steps" aria-label="Кроки бронювання">
-        <div class="step active" data-step="service">
+        <button type="button" class="step active" data-step="service">
             <span>1</span>
             <p>Послуга</p>
-        </div>
-        <div class="step" data-step="date">
+        </button>
+        <button type="button" class="step" data-step="date">
             <span>2</span>
             <p>Дата</p>
-        </div>
-        <div class="step" data-step="time">
+        </button>
+        <button type="button" class="step" data-step="time">
             <span>3</span>
             <p>Час</p>
-        </div>
-        <div class="step" data-step="confirm">
+        </button>
+        <button type="button" class="step" data-step="confirm">
             <span>4</span>
             <p>Підтвердження</p>
-        </div>
+        </button>
     </div>
 
     <div class="booking-layout">
@@ -70,7 +70,7 @@
                     <span>03</span>
                     <div>
                         <h2>Час</h2>
-                        <p>Слот бронюється тільки після серверної перевірки.</p>
+                        <p>Оберіть зручний час для відвідування.</p>
                     </div>
                 </div>
                 <div id="times_catalog">
@@ -96,7 +96,7 @@
 
                 <label class="comment">
                     <span>Коментар</span>
-                    <textarea id="comment" rows="3" placeholder="Наприклад: буду на 2 гостей"></textarea>
+                    <textarea id="comment" rows="3" placeholder="Наприклад: нас буде двоє"></textarea>
                 </label>
 
                 <div id="booking_message" class="booking-message" aria-live="polite"></div>
@@ -181,26 +181,22 @@
     }
 
     function updateSteps() {
-        const steps = document.querySelectorAll(".step");
-        steps.forEach(step => step.classList.remove("active", "done"));
-
-        if (state.serviceId) {
-            document.querySelector('[data-step="service"]').classList.add("done");
-            document.querySelector('[data-step="date"]').classList.add("active");
-        } else {
-            document.querySelector('[data-step="service"]').classList.add("active");
-            return;
-        }
-
-        if (state.bookingDate) {
-            document.querySelector('[data-step="date"]').classList.add("done");
-            document.querySelector('[data-step="time"]').classList.add("active");
-        }
-
-        if (state.bookingTime) {
-            document.querySelector('[data-step="time"]').classList.add("done");
-            document.querySelector('[data-step="confirm"]').classList.add("active");
-        }
+        const available = [true, !!state.serviceId, !!state.bookingDate, !!state.bookingTime];
+        const active = state.bookingTime ? 3 : state.bookingDate ? 2 : state.serviceId ? 1 : 0;
+        document.querySelectorAll('.step').forEach((step, index) => {
+            step.disabled = !available[index];
+            step.classList.toggle('active', index === active);
+            step.classList.toggle('done', index < active);
+            if (index === active) step.setAttribute('aria-current', 'step');
+            else step.removeAttribute('aria-current');
+            step.onclick = () => {
+                const targets = ['propose', 'dates_catalog', 'times_catalog', 'book_button'];
+                document.getElementById(targets[index]).scrollIntoView({behavior: 'smooth', block: 'center'});
+                document.querySelectorAll('.step').forEach(other => {other.classList.remove('active'); other.removeAttribute('aria-current');});
+                step.classList.add('active');
+                step.setAttribute('aria-current', 'step');
+            };
+        });
     }
 
     function set_services() {
@@ -217,6 +213,7 @@
             const card = document.createElement('div');
             card.classList.add("card");
             card.tabIndex = 0;
+            card.setAttribute("role", "button");
             card.dataset.serviceId = element.id;
 
             const img = document.createElement('img');
@@ -244,6 +241,11 @@
                 card.appendChild(description);
             }
 
+            if (element.conditions) {
+                const conditions = document.createElement("small");
+                conditions.textContent = `Умови: ${element.conditions}`;
+                card.append(conditions);
+            }
             card.onclick = function () {
                 selectService(element.id);
             };
@@ -276,8 +278,10 @@
         try {
             showMessage("", "info");
             const data = await api(`/api/booking/availability?service_id=${serviceId}`);
+            if (state.serviceId !== serviceId) return;
             set_dates(data.availability);
         } catch (error) {
+            if (state.serviceId !== serviceId) return;
             document.getElementById("dates_catalog").innerHTML = '<div class="empty-state"><h3>Не вдалося завантажити дати</h3><p>Перевірте зʼєднання або спробуйте ще раз.</p><button class="secondary" type="button" id="retry_dates">Спробувати ще раз</button></div>';
             document.getElementById("retry_dates").onclick = function () {
                 selectService(serviceId);
@@ -302,6 +306,9 @@
 
             const card = document.createElement('div');
             card.classList.add('date');
+            card.tabIndex = 0;
+            card.setAttribute('role', 'button');
+            card.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); card.click(); } };
             card.dataset.date = element.date;
 
             const day = document.createElement('p');
@@ -311,7 +318,7 @@
             day_number.textContent = date.getDate();
 
             const slots = document.createElement('span');
-            slots.textContent = `${element.slots.length} слотів`;
+            slots.textContent = `Вільний час: ${element.slots.length}`;
 
             card.appendChild(day);
             card.appendChild(day_number);
@@ -347,7 +354,8 @@
 
         slots.forEach(element => {
             const card = document.createElement('p');
-            card.textContent = element
+            card.textContent = element;
+            card.setAttribute("role", "button");
             card.tabIndex = 0;
 
             card.onclick = function() {
@@ -380,7 +388,10 @@
             set_services();
 
             if (state.services.length > 0) {
-                selectService(state.services[0].id);
+                const requestedId = Number(new URLSearchParams(location.search).get('service_id'));
+                const selected = state.services.find(service => service.id === requestedId);
+                if (requestedId && !selected) showMessage('Ця послуга зараз недоступна. Оберіть іншу або зв’яжіться з нами.', 'error');
+                else await selectService(selected ? selected.id : state.services[0].id);
             }
         } catch (error) {
             document.getElementById('propose').innerHTML = '<div class="empty-state"><h3>Не вдалося завантажити послуги</h3><p>Сервіс тимчасово недоступний або база не підключена.</p><button class="secondary" type="button" id="retry_services">Спробувати ще раз</button></div>';
@@ -408,7 +419,7 @@
                 title.textContent = booking.service_name;
 
                 const details = document.createElement("p");
-                details.textContent = `${booking.booking_date} о ${booking.booking_time} · ${booking.status}`;
+                details.textContent = `${booking.booking_date} о ${booking.booking_time} · ${({pending: "Очікує", confirmed: "Підтверджено", cancelled: "Скасовано", completed: "Завершено"})[booking.status] || "Невідомий статус"}`;
 
                 const cancel = document.createElement("button");
                 cancel.type = "button";
@@ -438,6 +449,7 @@
     }
 
     async function createBooking() {
+        if (state.loading) return;
         if (!initData) {
             showMessage("Для бронювання відкрийте додаток через Telegram.", "error");
             return;
@@ -458,10 +470,11 @@
                     comment
                 })
             });
-            showMessage("Готово! Бронювання створено та очікує підтвердження.", "success");
+
             document.getElementById("comment").value = "";
             await loadBookings();
             await selectService(state.serviceId);
+            showMessage("Готово! Бронювання створено та очікує підтвердження.", "success");
         } catch (error) {
             showMessage(error.message, "error");
         } finally {

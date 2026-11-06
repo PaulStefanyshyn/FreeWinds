@@ -35,7 +35,8 @@
         <form method="post" action="{{ url_for('room_booking_confirm') }}">
             <input type="hidden" name="submit_token" value="{{ submit_token }}">
             <button type="submit" class="btn btn-primary">Підтвердити та забронювати</button>
-        </form>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
         <a class="btn btn-secondary" href="{{ url_for('room_booking_start', room_id=preview.room.id, check_in=preview.check_in, check_out=preview.check_out) }}">Повернутися та виправити дані</a>
     </div>
 </section>

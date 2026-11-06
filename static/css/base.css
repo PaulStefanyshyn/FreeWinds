@@ -1,12 +1,12 @@
 :root {
     --color-primary: #315f77;
     --color-primary-dark: #24495f;
-    --color-secondary: #b8894d;
+    --color-secondary: #91652f;
     --color-background: #f5f1e9;
     --color-surface: #fffdf8;
     --color-surface-soft: #ede7da;
     --color-text: #17232b;
-    --color-muted: #7e776c;
+    --color-muted: #655f56;
     --color-border: #ded6c7;
     --color-success: #2f7a54;
     --color-warning: #b8894d;
@@ -218,3 +218,13 @@ button:disabled,
         width: 100%;
     }
 }
+
+input { font: inherit; min-width: 0; }
+input::placeholder, textarea::placeholder { color: var(--color-muted); font-weight: 400; opacity: 1; }
+input:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 3px; }
+.flash-message { padding: 16px; margin-bottom: 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
+.flash-message.error { color: var(--color-error); }
+.back-link { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-primary); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
+
+[hidden] { display: none !important; }

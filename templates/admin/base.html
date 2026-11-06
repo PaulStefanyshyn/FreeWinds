@@ -43,7 +43,8 @@
 
             <form action="{{ url_for('admin_logout') }}" method="post" class="admin-logout">
                 <button type="submit">Вийти</button>
-            </form>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
         </aside>
 
         <section class="admin-main">

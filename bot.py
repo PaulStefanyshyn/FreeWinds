@@ -11,6 +11,7 @@ from config import SITE_BASE_URL, TELEGRAM_BOT_TOKEN, WEB_APP_URL
 from db import (
     DatabaseUnavailable,
     Error,
+    clean_optional_text,
     get_client_bookings,
     get_client_room_bookings_by_telegram,
     get_service,
@@ -41,10 +42,7 @@ def main_menu_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [web_or_url_button("🏡 Забронювати номер", get_site_url("/rooms"))],
-            [
-                InlineKeyboardButton(text="🛁 Чан, сауна та баня", callback_data="services"),
-                InlineKeyboardButton(text="💰 Ціни та послуги", callback_data="prices"),
-            ],
+            [InlineKeyboardButton(text="🛁 Послуги та ціни", callback_data="services")],
             [InlineKeyboardButton(text="🛎️ Мої бронювання", callback_data="bookings")],
             [InlineKeyboardButton(text="📍 Контакти й розташування", callback_data="contacts")],
             [web_or_url_button("🚀 Запустити додаток", get_site_url("/"))],
@@ -71,7 +69,7 @@ def services_keyboard(services):
 def service_detail_keyboard(service_id):
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [web_or_url_button("Забронювати послугу", WEB_APP_URL)],
+            [web_or_url_button("Забронювати послугу", f"{WEB_APP_URL}{'&' if '?' in WEB_APP_URL else '?'}service_id={service_id}")],
             [InlineKeyboardButton(text="⬅️ До списку послуг", callback_data="services")],
             [InlineKeyboardButton(text="🏠 Головне меню", callback_data="menu")],
         ]
@@ -82,7 +80,7 @@ def format_price(service):
     price = service.get("price")
     if price is None:
         return "ціну уточнюйте"
-    return f"{price:g} грн / {service.get('price_unit') or 'год'}"
+    return f"{price:g} грн / {escape(service.get('price_unit') or 'год')}"
 
 
 def format_service_detail(service):
@@ -95,7 +93,7 @@ def format_service_detail(service):
     ]
     if service.get("duration_minutes"):
         lines.append(f"Тривалість: {service['duration_minutes']} хв")
-    if service.get("conditions"):
+    if clean_optional_text(service.get("conditions")):
         lines.extend(["", f"Умови: {escape(service['conditions'])}"])
     return "\n".join(lines)
 
@@ -254,7 +252,7 @@ async def callback_bookings(callback: types.CallbackQuery):
         for booking in service_bookings[:8]:
             lines.append(
                 f"• #{booking['id']} {escape(booking['service_name'] or '')}: "
-                f"{booking['booking_date']} о {booking['booking_time']} ({booking['status']})"
+                f"{booking['booking_date']} о {booking['booking_time']} ({escape(booking.get('status_label') or 'Невідомий статус')})"
             )
     if len(lines) == 1:
         lines.append("")

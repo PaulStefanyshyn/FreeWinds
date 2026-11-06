@@ -24,30 +24,17 @@
 
     <form method="post" class="booking-form">
         <input type="hidden" name="initData" id="telegram_init_data">
-        <input type="hidden" name="telegram_user_id" id="telegram_user_id">
-        <input type="hidden" name="telegram_first_name" id="telegram_first_name">
-        <input type="hidden" name="telegram_last_name" id="telegram_last_name">
-        <input type="hidden" name="telegram_username" id="telegram_username">
-        <input type="hidden" name="guest_name" id="guest_name" value="Клієнт">
         <div class="form-grid">
-            <div class="readonly-field">
-                <span>Клієнт</span>
-                <strong id="telegram_user_label">Буде взято з Telegram</strong>
-            </div>
+            <label>
+                <span>Ім’я та прізвище</span>
+                <input name="guest_name" id="guest_name" value="{{ form.guest_name }}" placeholder="Як до вас звертатися" autocomplete="name" required maxlength="255">
+            </label>
             <label>
                 <span>Телефон</span>
-                <input name="guest_phone" value="{{ form.guest_phone }}" placeholder="+380..." required>
+                <input type="tel" autocomplete="tel" name="guest_phone" value="{{ form.guest_phone }}" placeholder="+380..." required>
             </label>
-            <div class="readonly-field">
-                <span>Дата заїзду</span>
-                <strong>{{ form.check_in }}</strong>
-                <input type="hidden" name="check_in" value="{{ form.check_in }}">
-            </div>
-            <div class="readonly-field">
-                <span>Дата виїзду</span>
-                <strong>{{ form.check_out }}</strong>
-                <input type="hidden" name="check_out" value="{{ form.check_out }}">
-            </div>
+            <label><span>Дата заїзду</span><input type="date" name="check_in" value="{{ form.check_in }}" required></label>
+            <label><span>Дата виїзду</span><input type="date" name="check_out" value="{{ form.check_out }}" required></label>
             <div class="readonly-field">
                 <span>Час заїзду</span>
                 <strong>{{ check_in_time }}</strong>
@@ -64,33 +51,22 @@
 
         <div class="booking-actions">
             <button type="submit" class="btn btn-primary">Переглянути заявку</button>
-            <a class="btn btn-secondary" href="{{ url_for('house', room_id=room.id) }}">Повернутися до номера</a>
+            <a class="btn btn-secondary" href="{{ url_for('house', room_id=room.id, check_in=form.check_in, check_out=form.check_out) }}">Повернутися до номера</a>
         </div>
-    </form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
 </section>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const telegram = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-        if (telegram) {
-            telegram.ready();
-            telegram.expand();
-            document.getElementById("telegram_init_data").value = telegram.initData || "";
-            const user = telegram.initDataUnsafe && telegram.initDataUnsafe.user ? telegram.initDataUnsafe.user : null;
-            if (user) {
-                const fullName = [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username || "Клієнт";
-                document.getElementById("telegram_user_id").value = user.id || "";
-                document.getElementById("telegram_first_name").value = user.first_name || "";
-                document.getElementById("telegram_last_name").value = user.last_name || "";
-                document.getElementById("telegram_username").value = user.username || "";
-                document.getElementById("guest_name").value = fullName;
-                document.getElementById("telegram_user_label").textContent = fullName;
-            }
-        } else {
-            document.getElementById("telegram_user_label").textContent = "Клієнт";
+    const telegram = window.Telegram && window.Telegram.WebApp;
+    if (telegram && telegram.initData) {
+        document.getElementById('telegram_init_data').value = telegram.initData;
+        const user = telegram.initDataUnsafe && telegram.initDataUnsafe.user;
+        if (user && !document.getElementById('guest_name').value) {
+            document.getElementById('guest_name').value = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || '';
         }
-    });
+    }
 </script>
 {% endblock %}

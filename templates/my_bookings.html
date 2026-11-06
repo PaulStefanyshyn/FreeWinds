@@ -80,7 +80,7 @@
             serviceBookings.forEach((booking) => {
                 appendBooking(
                     `${booking.service_name || "Послуга"} #${booking.id}`,
-                    `${booking.booking_date} ${booking.booking_time}\nСтатус: ${booking.status}\nСтворено: ${toKyivTime(booking.created_at) || "-"}`
+                    `${booking.booking_date} ${booking.booking_time}\nСтатус: ${booking.status_label || "Невідомий статус"}\nСтворено: ${toKyivTime(booking.created_at) || "-"}`
                 );
             });
         } catch (error) {

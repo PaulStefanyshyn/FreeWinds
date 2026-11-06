@@ -70,5 +70,6 @@
         <button type="submit" class="admin-primary">Зберегти страву</button>
         <a class="admin-secondary" href="{{ url_for('admin_menu') }}">Скасувати</a>
     </div>
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 </form>
 {% endblock %}

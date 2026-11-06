@@ -19,7 +19,8 @@
                 <input type="file" name="hero_image" accept="image/png,image/jpeg,image/webp,image/gif" required>
             </label>
             <button type="submit" class="admin-primary">Оновити фото</button>
-        </form>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
     </section>
 
     <section class="admin-panel">
@@ -44,7 +45,8 @@
                 <span>Показувати банер</span>
             </label>
             <button type="submit" class="admin-primary">Додати банер</button>
-        </form>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
     </section>
 </div>
 
@@ -74,12 +76,14 @@
                     <button type="submit" class="admin-primary">Зберегти</button>
                     <button form="delete-banner-{{ banner.id }}" type="submit" class="danger-link" onclick="return confirm('Видалити банер?');">Видалити</button>
                 </div>
-            </form>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
         </article>
         {% endfor %}
     </div>
     {% for banner in banners %}
-    <form id="delete-banner-{{ banner.id }}" method="post" action="{{ url_for('admin_banner_delete', banner_id=banner.id) }}"></form>
+    <form id="delete-banner-{{ banner.id }}" method="post" action="{{ url_for('admin_banner_delete', banner_id=banner.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
     {% endfor %}
     {% else %}
     <div class="admin-empty">Банери ще не додані.</div>

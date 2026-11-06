@@ -59,11 +59,13 @@
                         {% if service.is_active %}
                         <form method="post" action="{{ url_for('admin_service_deactivate', service_id=service.id) }}" onsubmit="return confirm('Вимкнути послугу на сайті та в боті?');">
                             <button type="submit" class="danger-link">Вимкнути</button>
-                        </form>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
                         {% endif %}
                         <form method="post" action="{{ url_for('admin_service_delete', service_id=service.id) }}" onsubmit="return confirm('Видалити послугу? Якщо є бронювання, послугу буде вимкнено.');">
                             <button type="submit" class="danger-link">Видалити</button>
-                        </form>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
                     </td>
                 </tr>
                 {% endfor %}
